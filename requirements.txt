@@ -1,0 +1,10 @@
+# Core dependencies
+Flask>=2.0.0,<3.0.0
+python-dotenv>=0.19.0
+requests>=2.25.0  # Required for both test script and API calls
+
+# Azure OpenAI integration (only needed in production mode)
+openai>=1.0.0
+
+# Server deployment (optional)
+gunicorn>=20.0.0
