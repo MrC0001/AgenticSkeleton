@@ -126,25 +126,6 @@ python app.py
 python test.py
 ```
 
-## Extending for Your Hackathon
-
-This project is designed as a starting point. Here are ways to extend it:
-
-- **Add Real AI Capabilities**: Replace mock responses with actual Azure OpenAI implementation
-- **Extend the API**: Add more endpoints for specialized features
-- **Add a Frontend**: Build a UI that communicates with this API
-- **Add Authentication**: Implement token-based auth for secure access
-- **Add Persistence**: Connect to a database to store conversations/results
-
-## Project Structure
-
-- `app.py`: Main application code with both mock and Azure OpenAI modes
-- `test.py`: API test client that demonstrates how to use the endpoints
-- `.env.example`: Template for environment configuration
-- `requirements.txt`: Minimal Python dependencies
-
-## Environment Variables
-
 | Variable | Description | Default |
 |----------|-------------|---------|
 | `MOCK_RESPONSES` | Use mock responses instead of Azure | `true` |
