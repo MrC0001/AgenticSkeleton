@@ -6,10 +6,6 @@ A simple Flask API that provides an AI agent with dual operation modes:
 1. Mock responses (default for local development without API keys)
 2. Azure OpenAI API integration (for production deployments)
 
-This skeleton app is designed as a starting point for hackathons and prototypes,
-offering an easy way to simulate AI agent behavior locally, then seamlessly
-transition to actual AI when ready.
-
 Environment Variables:
 ---------------------
     MOCK_RESPONSES:        Set to "false" to use Azure OpenAI API (default: "true")
@@ -37,7 +33,6 @@ logging.basicConfig(
 )
 
 # Optional: Import Azure OpenAI only when needed
-# This allows the app to run in mock mode even if openai package isn't installed
 try:
     from openai import AzureOpenAI
 except ImportError:
@@ -45,11 +40,10 @@ except ImportError:
 
 # --------------- Configuration ---------------
 
-# Load environment variables from .env file
 load_dotenv()
 
 # Mode configuration
-# Default to mock mode (true) for easy local development
+
 USE_MOCK = os.getenv("MOCK_RESPONSES", "true").lower() == "true"
 
 # Azure OpenAI configuration (only used in production mode)
@@ -66,7 +60,7 @@ PORT = int(os.getenv("PORT", "8000"))
 
 # --------------- Prompt Templates ---------------
 
-# Template for planning: breaks down a request into subtasks
+
 PLANNER_TEMPLATE = (
     "You are a task planning assistant.\n"
     "Decompose the following user request into a numbered list of discrete subtasks:\n\n"
@@ -74,7 +68,7 @@ PLANNER_TEMPLATE = (
     "1."
 )
 
-# Template for execution: performs a single subtask
+
 EXECUTOR_TEMPLATE = (
     "You are an execution assistant.\n"
     "Perform the subtask below, and respond with just the result:\n\n"
@@ -83,7 +77,7 @@ EXECUTOR_TEMPLATE = (
 
 # --------------- Mock Data ---------------
 
-# Standard sequence of tasks for the mock planner
+
 MOCK_TASKS = [
     "Research the topic thoroughly",
     "Create an outline",
@@ -92,7 +86,7 @@ MOCK_TASKS = [
     "Format according to requirements"
 ]
 
-# Task-specific mock responses that simulate AI outputs
+
 MOCK_RESPONSES = {
     "research": "Found multiple sources confirming that {topic} has significant implications.",
     "write": "Here's a concise summary of {topic}: It represents an important development.",
@@ -105,12 +99,10 @@ MOCK_RESPONSES = {
 azure_client = None
 if not USE_MOCK:
     try:
-        # Verify required credentials are available
         if not AZURE_KEY or not AZURE_ENDPOINT:
             logging.warning("Azure OpenAI credentials not found in environment. Falling back to mock mode.")
             USE_MOCK = True
         else:
-            # Initialize the Azure OpenAI client
             azure_client = AzureOpenAI(
                 api_key=AZURE_KEY,
                 azure_endpoint=AZURE_ENDPOINT,
@@ -138,7 +130,6 @@ def get_mock_task_response(task: str) -> str:
     Returns:
         A simulated AI-generated response appropriate for the task type
     """
-    # Extract a topic from the task (use the last word as a simple heuristic)
     words = task.lower().split()
     topic = words[-1] if words else "task"
     
@@ -151,7 +142,6 @@ def get_mock_task_response(task: str) -> str:
     else:
         template = MOCK_RESPONSES["default"]
     
-    # Fill in the template with the extracted topic
     return template.format(topic=topic)
 
 
@@ -174,9 +164,8 @@ def call_azure_openai(model: str, prompt: str) -> str:
         response = azure_client.chat.completions.create(
             model=model,
             messages=[{"role": "system", "content": prompt}],
-            temperature=0.3  # Lower temperature for more deterministic responses
+            temperature=0.3
         )
-        # Extract and clean the response text
         return response.choices[0].message.content.strip()
     except Exception as e:
         logging.error(f"Azure OpenAI API call failed: {e}")
@@ -223,13 +212,10 @@ def run_agent() -> Response:
         user_request = payload["request"]
         logging.info(f"Processing request: '{user_request[:50]}{'...' if len(user_request) > 50 else ''}'")
         
-        # Process the request in either mock or Azure mode
         if USE_MOCK:
-            # In mock mode, use pre-defined tasks and generate mock responses
             logging.debug("Using mock mode - generating simulated responses")
             subtasks = MOCK_TASKS
             
-            # Generate mock results for each task
             results = []
             for task in subtasks:
                 results.append({
@@ -237,7 +223,6 @@ def run_agent() -> Response:
                     "result": get_mock_task_response(task)
                 })
         else:
-            # In Azure mode, use the OpenAI API to generate a real plan and execute it
             logging.debug("Using Azure mode - calling OpenAI API")
             
             # Step 1: Generate a plan
@@ -270,14 +255,13 @@ def run_agent() -> Response:
                     "result": result
                 })
         
-        # Return the plan and results as JSON
+        # Return the plan as JSON
         return jsonify({
             "plan": subtasks,
             "results": results
         })
         
     except Exception as e:
-        # Handle any unexpected errors
         logging.error(f"Error processing request: {str(e)}", exc_info=True)
         return jsonify({
             "error": "Internal server error",
@@ -288,12 +272,10 @@ def run_agent() -> Response:
 # --------------- Main Entry Point ---------------
 
 if __name__ == "__main__":
-    # Display banner and mode information
-    print("=" * 60)
+    print("=" * 69)
     print(f"🤖 Agentic Skeleton App - Running in {'MOCK' if USE_MOCK else 'AZURE'} mode")
-    print(f"📋 API Documentation: http://localhost:{PORT}/")
     print(f"🔍 Health Check: http://localhost:{PORT}/health")
-    print("=" * 60)
+    print("=" * 69)
     
     # Start the Flask server
     app.run(host="0.0.0.0", port=PORT, debug=(os.getenv("FLASK_ENV") == "development"))

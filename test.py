@@ -2,7 +2,7 @@
 """
 Test client for AgenticSkeleton API
 
-This script demonstrates how to use the AgenticSkeleton API by:
+This script demonstrates the use of the AgenticSkeleton API:
 1. Checking the health endpoint
 2. Making requests to the run-agent endpoint with different query types
 
@@ -15,7 +15,6 @@ import time
 import os
 from dotenv import load_dotenv
 
-# Load environment variables from .env file
 load_dotenv()
 
 # Configuration
@@ -23,7 +22,6 @@ BASE_URL = f"http://localhost:{os.getenv('PORT', '8000')}"
 HEALTH_ENDPOINT = f"{BASE_URL}/health"
 AGENT_ENDPOINT = f"{BASE_URL}/run-agent"
 
-# Test queries for the agent to demonstrate different response types
 TEST_QUERIES = [
     {
         "name": "Writing Task",
@@ -64,7 +62,6 @@ def test_health():
 
 def test_agent_query(query, query_name=None, query_num=None, total_queries=None):
     """Test the run-agent endpoint with a specific query"""
-    # Display query info with numbering if provided
     if query_num is not None and total_queries is not None:
         print(f"\n2️ Testing run-agent endpoint ({query_num}/{total_queries}): {query_name}\n")
     else:
@@ -95,9 +92,8 @@ def test_agent_query(query, query_name=None, query_num=None, total_queries=None)
         for i, result in enumerate(data.get("results", []), 1):
             print(f"  Task {i}: {result.get('subtask')}")
             print(f"  Result: {result.get('result')}")
-            print("  " + "-" * 40)  # Separator line for readability
+            print("  " + "-" * 40) 
         
-        # Show more info about response
         print(f"\nTotal tasks: {len(data.get('plan', []))}")
         print(f"Response time: {end_time - start_time:.2f} seconds")
         
@@ -113,7 +109,6 @@ def test_all_queries():
     success = True
     
     for i, test_case in enumerate(TEST_QUERIES, 1):
-        # Add a separator between tests
         if i > 1:
             print("\n" + "=" * 70 + "\n")
             
@@ -133,9 +128,7 @@ def test_all_queries():
 if __name__ == "__main__":
     print("AgenticSkeleton API Test")
     
-    # First check if the server is healthy
     if test_health():
-        # Then test all agent queries
         test_all_queries()
     
     print("\nTest completed.")
