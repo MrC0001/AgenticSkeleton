@@ -273,8 +273,8 @@ pip install termcolor
 | `MOCK_RESPONSES` | Use mock responses instead of Azure | `true` |
 | `AZURE_OPENAI_KEY` | Azure OpenAI API key | N/A |
 | `AZURE_OPENAI_ENDPOINT` | Azure OpenAI endpoint URL | N/A |
-| `MODEL_PLANNER` | Model for planning tasks | `gpt-4` |
-| `MODEL_EXECUTOR` | Model for execution tasks | `gpt-4` |
+| `MODEL_PLANNER` | Model for planning tasks | `o3-mini` |
+| `MODEL_EXECUTOR` | Model for execution tasks | `claude_3.7_sonnet` |
 | `PORT` | Server port | `8000` |
 
 ## Dependencies
