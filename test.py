@@ -41,34 +41,34 @@ TEST_QUERIES = [
 
 def test_health():
     """Test the health check endpoint"""
-    print("\n1️⃣ Testing health check endpoint...\n")
+    print("\n1️ Testing health check endpoint...\n")
     
     try:
         response = requests.get(HEALTH_ENDPOINT)
         response.raise_for_status()
         
         data = response.json()
-        print(f"✅ Status: {data.get('status')}")
-        print(f"✅ Mode: {data.get('mode')}")
+        print(f" Status: {data.get('status')}")
+        print(f" Mode: {data.get('mode')}")
         print("\nHealth check successful! The server is running.")
         return True
         
     except requests.exceptions.ConnectionError:
-        print("❌ Connection Error: The server is not running.")
+        print(" Connection Error: The server is not running.")
         print("   Start the server with 'python app.py' first.")
         return False
         
     except Exception as e:
-        print(f"❌ Error: {str(e)}")
+        print(f" Error: {str(e)}")
         return False
 
 def test_agent_query(query, query_name=None, query_num=None, total_queries=None):
     """Test the run-agent endpoint with a specific query"""
     # Display query info with numbering if provided
     if query_num is not None and total_queries is not None:
-        print(f"\n2️⃣ Testing run-agent endpoint ({query_num}/{total_queries}): {query_name}\n")
+        print(f"\n2️ Testing run-agent endpoint ({query_num}/{total_queries}): {query_name}\n")
     else:
-        print(f"\n2️⃣ Testing run-agent endpoint: {query_name}\n")
+        print(f"\n2️ Testing run-agent endpoint: {query_name}\n")
         
     print(f"📝 Query: \"{query}\"\n")
     
@@ -86,25 +86,25 @@ def test_agent_query(query, query_name=None, query_num=None, total_queries=None)
         data = response.json()
         
         # Display plan
-        print("📋 Plan:")
+        print("Plan:")
         for i, task in enumerate(data.get("plan", []), 1):
             print(f"  {i}. {task}")
         
         # Display all results
-        print("\n🔍 Results:")
+        print("\nResults:")
         for i, result in enumerate(data.get("results", []), 1):
             print(f"  Task {i}: {result.get('subtask')}")
             print(f"  Result: {result.get('result')}")
             print("  " + "-" * 40)  # Separator line for readability
         
         # Show more info about response
-        print(f"\n✅ Total tasks: {len(data.get('plan', []))}")
-        print(f"✅ Response time: {end_time - start_time:.2f} seconds")
+        print(f"\nTotal tasks: {len(data.get('plan', []))}")
+        print(f"Response time: {end_time - start_time:.2f} seconds")
         
         return True
         
     except Exception as e:
-        print(f"❌ Error: {str(e)}")
+        print(f"Error: {str(e)}")
         return False
 
 
@@ -131,12 +131,12 @@ def test_all_queries():
     return success
 
 if __name__ == "__main__":
-    print("🧪 AgenticSkeleton API Test 🧪")
+    print("AgenticSkeleton API Test")
     
     # First check if the server is healthy
     if test_health():
         # Then test all agent queries
         test_all_queries()
     
-    print("\n✨ Test complete ✨")
+    print("\nTest completed.")
 
