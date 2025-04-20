@@ -1,19 +1,6 @@
 # AgenticSkeleton
 
 A simple Flask-based AI agent skeleton with both mock responses and Azure OpenAI integration.
-Perfect starting point for hackathons!
-
-## Features
-
-- **Dual Mode Operation**: 
-  - Mock mode for local development without Azure credentials
-  - Azure OpenAI integration for production use
-- **Simple API**:
-  - Single endpoint that generates a plan and executes tasks
-  - Health check endpoint for monitoring
-- **Easy Configuration**:
-  - Environment variables for all settings
-  - Defaults that work out of the box
 
 ## Quick Start
 
