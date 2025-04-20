@@ -6,6 +6,7 @@ __pycache__/
 coverage.xml
 *.cover
 htmlcov/
+.coverage
 
 # Virtual Environment
 venv/
@@ -45,4 +46,14 @@ build/
 # Compiled files
 a.out
 *.exe
+
+# Additional Python caches
+.pytest_cache/
+.coverage
+pytest-report.xml
+.mypy_cache/
+.ruff_cache/
+
+# Local development files
+local_settings.py
 

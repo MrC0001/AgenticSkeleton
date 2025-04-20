@@ -1,10 +1,17 @@
 # Core dependencies
-Flask>=2.0.0,<3.0.0
-python-dotenv>=0.19.0
-requests>=2.25.0  # Required for both test script and API calls
+Flask>=2.0.0,<3.0.0  # Web framework
+python-dotenv>=0.19.0  # Environment variable management
+requests>=2.25.0  # HTTP client for API calls and testing
 
-# Azure OpenAI integration (only needed in production mode)
-openai>=1.0.0
+# Azure OpenAI integration (optional - only needed when not using mock mode)
+openai>=1.0.0  # Azure OpenAI client library
 
-# Server deployment (optional)
-gunicorn>=20.0.0
+# Formatting and output (optional - improves user experience)
+termcolor>=2.0.0  # For colored terminal output
+
+# Development tools (optional)
+pytest>=7.0.0  # For running tests
+pytest-cov>=4.0.0  # For test coverage reports
+
+# Production deployment (optional)
+gunicorn>=20.0.0  # WSGI HTTP Server for production deployment
