@@ -69,48 +69,23 @@ def classify_request(user_request: str) -> str:
     """
     request_lower = user_request.lower()
     
-    # 1. Test case overrides
-    test_case_mapping = {
-        "write a comprehensive blog post about quantum computing advancements in 2025": "write",
-        "analyze the impact of artificial intelligence on healthcare in 2025": "analyze",
-        "develop a restful api for a smart home management system": "develop",
-        "create a machine learning model to predict customer churn": "data-science",
-        "design a user interface for an augmented reality fitness application": "design",
-        "design a user interface for a mobile app": "design",
-        "create a comprehensive plan for developing and launching a machine learning-powered health monitoring platform": "data-science"
-    }
-    
-    # Check for exact test case matches first
-    for test_case, plan in test_case_mapping.items():
-        if test_case in request_lower:
-            logging.info(f"Test case detected: {plan}")
-            return plan
-    
-    # 2. Complex task pattern analysis
+    # Define classifiers with their patterns
     request_classifiers = [
-        {
-            "type": "analyze",
-            "patterns": [
-                "analyze", "analysis", "evaluate", "assess", "review", "study", 
-                "research", "compare", "investigate", "examine", "trends", "patterns",
-                "market analysis", "competitive analysis", "impact", "implications"
-            ]
-        },
-        {
-            "type": "develop",
-            "patterns": [
-                "develop", "build", "create", "implement", "code", "program", 
-                "app", "application", "api", "website", "backend", "frontend", 
-                "software", "function", "class", "module", "database", "rest api"
-            ]
-        },
         {
             "type": "data-science",
             "patterns": [
                 "machine learning", "ml model", "predictive model", "data mining", 
                 "train model", "neural network", "clustering", "classification algorithm",
                 "regression", "feature engineering", "data preprocessing", "dataset",
-                "predict", "forecasting", "ai model", "customer churn"
+                "predict", "forecasting", "ai model", "customer churn", "nlp", "train"
+            ]
+        },
+        {
+            "type": "analyze",
+            "patterns": [
+                "analyze", "analysis", "evaluate", "assess", "review", "study", 
+                "research", "compare", "investigate", "examine", "trends", "patterns",
+                "market analysis", "competitive analysis", "impact", "implications"
             ]
         },
         {
@@ -127,37 +102,56 @@ def classify_request(user_request: str) -> str:
                 "write", "draft", "blog", "article", "post", "essay", "content", 
                 "copywriting", "script", "document", "report", "whitepaper", "create content"
             ]
+        },
+        {
+            "type": "develop",
+            "patterns": [
+                "develop", "build", "implement", "code", "program", 
+                "website", "backend", "frontend", "software", "function", "class", 
+                "module", "database", "rest api"
+            ]
         }
     ]
     
-    # Detect complex multi-domain tasks
-    complex_task = (
+    # 1. Detect explicit complex multi-domain phrases
+    explicit_complex_task = (
         any(term in request_lower for term in [
             "comprehensive plan", "end-to-end", "full stack", "multi-phase", 
             "platform", "ecosystem", "integrated system", "launch"
         ]) and len(request_lower.split()) > 15
     )
     
-    # For complex tasks, analyze dominant theme
-    if complex_task:
-        dominant_themes = []
-        for classifier in request_classifiers:
-            matches = sum(1 for pattern in classifier["patterns"] if pattern in request_lower)
-            if matches > 0:
-                dominant_themes.append((classifier["type"], matches))
+    # 2. Check for multiple domain matches (implicit complex task)
+    domain_matches = []
+    for classifier in request_classifiers:
+        matches = sum(1 for pattern in classifier["patterns"] if pattern in request_lower)
+        if matches > 0:
+            domain_matches.append((classifier["type"], matches))
+    
+    # Consider it complex if we match more than one domain type
+    implicit_complex_task = len(domain_matches) > 1
+    
+    # 3. Handle complex tasks (either explicit or implicit)
+    if explicit_complex_task or implicit_complex_task:
+        logging.info(f"Complex task detected - domains: {[d[0] for d in domain_matches]}")
         
         # Use the most dominant theme or data-science as fallback
-        return max(dominant_themes, key=lambda x: x[1])[0] if dominant_themes else "data-science"
+        if domain_matches:
+            dominant_type = max(domain_matches, key=lambda x: x[1])[0]
+            logging.info(f"Using dominant classification: {dominant_type}")
+            return dominant_type
+        else:
+            return "data-science"
     
-    # 3. Keyword classification
-    plan_type = "default"
-    for classifier in request_classifiers:
-        if any(pattern in request_lower for pattern in classifier["patterns"]):
-            plan_type = classifier["type"]
-            break
+    # 4. Handle simple tasks with a single domain
+    if domain_matches:
+        plan_type = domain_matches[0][0]
+        logging.info(f"Request classified as: {plan_type}")
+        return plan_type
     
-    logging.info(f"Request classified as: {plan_type}")
-    return plan_type
+    # 5. Default classification if no patterns match
+    logging.info(f"No specific patterns matched, using default classification")
+    return "default"
 
 
 
