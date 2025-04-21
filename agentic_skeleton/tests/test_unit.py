@@ -336,5 +336,9 @@ def run_tests():
     print(f"  {colored('Success rate:', 'cyan')} {colored(f'{success_rate:.1f}%', status_color)}")
 
 
+
+
+
+
 if __name__ == "__main__":
     run_tests()

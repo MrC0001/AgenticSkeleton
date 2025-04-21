@@ -7,6 +7,7 @@ Used in production mode when mock responses are disabled.
 """
 
 import logging
+import re
 from typing import Dict, List, Any, Optional, Tuple
 
 # Optional: Import Azure OpenAI only when needed
@@ -49,6 +50,10 @@ def initialize_client() -> Optional[Any]:
         logging.error(f"Failed to initialize Azure OpenAI client: {e}")
         return None
 
+
+
+
+
 def call_azure_openai(model: str, prompt: str) -> str:
     """
     Call Azure OpenAI API with error handling.
@@ -77,6 +82,41 @@ def call_azure_openai(model: str, prompt: str) -> str:
         logging.error(error_msg)
         return f"Error: {str(e)}"
 
+
+
+
+
+def enhance_prompt_with_domain_knowledge(prompt: str, user_request: str) -> str:
+    """
+    Enhance a prompt with domain-specific knowledge if applicable.
+    
+    Args:
+        prompt: The original prompt template
+        user_request: The user's request text
+        
+    Returns:
+        Enhanced prompt with domain knowledge if applicable, original prompt otherwise
+    """
+    request_lower = user_request.lower()
+    
+    # Check for domain matches using Azure's domain knowledge
+    for domain, info in settings.AZURE_DOMAIN_KNOWLEDGE.items():
+        if any(keyword in request_lower for keyword in info["keywords"]):
+            # Add the domain-specific context to the prompt
+            domain_info = f"\n\nDomain-Specific Context:\n{info['context']}\n"
+            
+            # Add preferred approach if available
+            if "preferred_approach" in info:
+                domain_info += f"\nRecommended approach: {info['preferred_approach']}.\n"
+            
+            return prompt + domain_info
+    
+    return prompt
+
+
+
+
+
 def generate_plan(user_request: str) -> List[str]:
     """
     Generate a plan using Azure OpenAI.
@@ -88,8 +128,12 @@ def generate_plan(user_request: str) -> List[str]:
         List of subtasks
     """
     logging.info("Generating plan with Azure OpenAI")
+    
+    # Enhance prompt with domain knowledge
     planner_prompt = settings.PLANNER_TEMPLATE.format(user_request=user_request)
-    plan_text = call_azure_openai(settings.MODEL_PLANNER, planner_prompt)
+    enhanced_prompt = enhance_prompt_with_domain_knowledge(planner_prompt, user_request)
+    
+    plan_text = call_azure_openai(settings.MODEL_PLANNER, enhanced_prompt)
     
     # Extract subtasks from the response
     subtasks = extract_subtasks_from_text(plan_text)
@@ -101,12 +145,17 @@ def generate_plan(user_request: str) -> List[str]:
         
     return subtasks
 
-def execute_subtasks(subtasks: List[str]) -> List[Dict[str, str]]:
+
+
+
+
+def execute_subtasks(subtasks: List[str], user_request: str) -> List[Dict[str, str]]:
     """
     Execute all subtasks using Azure OpenAI.
     
     Args:
         subtasks: List of subtask descriptions
+        user_request: The original user request for domain context
         
     Returns:
         List of dictionaries with subtask descriptions and results
@@ -116,14 +165,22 @@ def execute_subtasks(subtasks: List[str]) -> List[Dict[str, str]]:
     
     for i, task in enumerate(subtasks, 1):
         logging.info(f"Executing subtask {i}/{len(subtasks)}: {task[:30]}...")
+        
+        # Enhance executor prompt with domain knowledge
         executor_prompt = settings.EXECUTOR_TEMPLATE.format(subtask=task)
-        result = call_azure_openai(settings.MODEL_EXECUTOR, executor_prompt)
+        enhanced_prompt = enhance_prompt_with_domain_knowledge(executor_prompt, user_request)
+        
+        result = call_azure_openai(settings.MODEL_EXECUTOR, enhanced_prompt)
         results.append({
             "subtask": task,
             "result": result
         })
     
     return results
+
+
+
+
 
 def generate_azure_plan_and_results(user_request: str) -> Tuple[List[str], List[Dict]]:
     """
@@ -139,6 +196,6 @@ def generate_azure_plan_and_results(user_request: str) -> Tuple[List[str], List[
     subtasks = generate_plan(user_request)
     
     # Execute each subtask
-    results = execute_subtasks(subtasks)
+    results = execute_subtasks(subtasks, user_request)
     
     return subtasks, results

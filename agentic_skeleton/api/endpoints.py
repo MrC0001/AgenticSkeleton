@@ -31,6 +31,10 @@ def health_check() -> Response:
     logging.info(f"Health check: {status}")
     return jsonify(status)
 
+
+
+
+
 @app.route("/run-agent", methods=["POST"])
 def run_agent() -> Response:
     """
@@ -43,7 +47,7 @@ def run_agent() -> Response:
         # Get user request from JSON payload
         try:
             payload = request.get_json()
-            if payload is None:  # This happens when the JSON is malformed
+            if payload is None:  # A.k.a JSON is malformed
                 logging.warning("Malformed JSON in request")
                 return jsonify({
                     "error": "Malformed JSON",
@@ -68,7 +72,7 @@ def run_agent() -> Response:
         req_summary = user_req[:50] + ('...' if len(user_req) > 50 else '')
         logging.info(f"Processing request: '{req_summary}'")
         
-        # Process the request using either mock or Azure based on configuration
+        # Process the request
         if settings.is_using_mock():
             subtasks, results = generate_mock_plan_and_results(user_req)
         else:

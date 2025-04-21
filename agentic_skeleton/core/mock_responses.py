@@ -57,6 +57,10 @@ MOCK_PLANS = {
     ]
 }
 
+
+
+
+
 # Mock responses by task category
 MOCK_RESPONSES = {
     "research": [
@@ -96,7 +100,11 @@ MOCK_RESPONSES = {
     ]
 }
 
-# Domain knowledge data
+
+
+
+
+# Domain knowledge data !!!UNIMPLEMENTED!!!
 DOMAIN_KNOWLEDGE = {
     "cloud_platforms": {
         "keywords": ["microsoft azure", "aws", "amazon web services", "google cloud", "azure", "cloud platform"],
@@ -140,6 +148,10 @@ DOMAIN_KNOWLEDGE = {
         "preferred_category": "analyze"
     }
 }
+
+
+
+
 
 def classify_request(user_request: str) -> str:
     """
@@ -242,6 +254,10 @@ def classify_request(user_request: str) -> str:
     
     logging.info(f"Request classified as: {plan_type}")
     return plan_type
+
+
+
+
 
 def get_mock_task_response(task: str) -> str:
     """
@@ -384,32 +400,9 @@ def get_mock_task_response(task: str) -> str:
     templates = MOCK_RESPONSES.get(template_category, MOCK_RESPONSES["default"])
     return random.choice(templates).format(topic=topic)
 
-def get_special_case_subtasks(user_request: str) -> Optional[List[str]]:
-    """
-    Check if the request is a special case that needs custom subtasks.
-    
-    Args:
-        user_request: The user's request text
-        
-    Returns:
-        List of custom subtasks if it's a special case, None otherwise
-    """
-    request_lower = user_request.lower()
-    
-    # Special case for the complex multi-domain task in the test case
-    if "create a comprehensive plan for developing and launching a machine learning-powered health" in request_lower:
-        # Custom plan for this specific test case that includes all required keywords
-        return [
-            "Collect and analyze data requirements for the health monitoring platform",
-            "Develop system architecture with cloud and edge components",
-            "Create machine learning models for health metric prediction and anomaly detection",
-            "Design responsive user interfaces for both mobile and web platforms",
-            "Implement secure data storage and processing pipeline",
-            "Evaluate model performance and system scalability",
-            "Create deployment and maintenance documentation"
-        ]
-    
-    return None
+
+
+
 
 def generate_mock_plan_and_results(user_request: str) -> Tuple[List[str], List[Dict]]:
     """
@@ -421,14 +414,9 @@ def generate_mock_plan_and_results(user_request: str) -> Tuple[List[str], List[D
     Returns:
         Tuple containing (subtasks, results)
     """
-    # Check for special case requests first
-    special_subtasks = get_special_case_subtasks(user_request)
-    if special_subtasks:
-        subtasks = special_subtasks
-    else:
-        # Get appropriate plan based on request classification
-        plan_type = classify_request(user_request)
-        subtasks = MOCK_PLANS[plan_type]
+    # Get appropriate plan based on request classification
+    plan_type = classify_request(user_request)
+    subtasks = MOCK_PLANS[plan_type]
     
     # Generate results for each subtask
     results = []
