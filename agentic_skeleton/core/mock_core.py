@@ -9,7 +9,7 @@ Used in development and testing mode when Azure OpenAI is not available.
 import logging
 from typing import Dict, List, Tuple
 
-from agentic_skeleton.core.mock.classifier import classify_request
+from agentic_skeleton.core.mock.classifier import classify_request, detect_domain_specialization
 from agentic_skeleton.core.mock.generator import get_mock_task_response
 from agentic_skeleton.core.mock.constants.mock_plans import MOCK_PLANS
 
@@ -36,7 +36,7 @@ def generate_mock_plan_and_results(user_request: str) -> Tuple[List[str], List[D
         response = get_mock_task_response(task)
         
         results.append({
-            "subtask": task,  # Keeping as "subtask" to maintain compatibility with tests
+            "subtask": task,
             "result": response
         })
         

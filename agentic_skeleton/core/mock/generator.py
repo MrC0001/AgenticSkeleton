@@ -209,8 +209,6 @@ def get_mock_task_response(task: str) -> str:
             dynamic_values["topic"] = matching_keyword
             return subtask_data["template"].format(**dynamic_values)
 
-
-    
     # 2. Fallback: tech keywords → categorize
     tech_patterns = [
         r"REST API", r"GraphQL API", r"machine learning", r"deep learning", 
@@ -298,7 +296,6 @@ def get_mock_task_response(task: str) -> str:
         topic = words[-1] if words else "task"
     
     # Ensure template_category is used for selecting the mock response
-    # This was the key issue - template_category was set but not consistently used
     if template_category and template_category in MOCK_RESPONSES:
         templates = MOCK_RESPONSES[template_category]
     else:
@@ -307,8 +304,10 @@ def get_mock_task_response(task: str) -> str:
     # Select a random template and format with topic
     template = random.choice(templates)
     
-    # Apply topic with proper formatting and add mock identifier
+    # Apply topic with proper formatting
     mock_response = template.format(topic=topic)
+    
+    # Add mock identifier if not present
     if "[MOCK]" not in mock_response:
         mock_response = f"[MOCK] {mock_response}"
     

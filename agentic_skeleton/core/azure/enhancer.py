@@ -7,6 +7,7 @@ Enhances prompts with domain-specific knowledge and request context for Azure Op
 
 import logging
 from typing import Dict, List, Any, Optional
+from agentic_skeleton.core.azure.constants.prompt_guidance import TASK_GUIDANCE, SUBTASK_GUIDANCE, STAGE_GUIDANCE
 
 def enhance_prompt_with_domain_knowledge(prompt: str, user_request: str, 
                                         request_category: str = "", 
@@ -27,15 +28,7 @@ def enhance_prompt_with_domain_knowledge(prompt: str, user_request: str,
     
     # 1. Add request category information
     if request_category:
-        task_guidance = {
-            "write": "Focus on creating high-quality written content with attention to structure, audience engagement, and clarity.",
-            "analyze": "Emphasize data-driven insights, critical evaluation, and actionable recommendations.",
-            "develop": "Prioritize technical implementation details, architecture, best practices, and code organization.",
-            "design": "Concentrate on user experience, interface design principles, accessibility, and visual coherence.",
-            "data-science": "Focus on data processing, model development, validation, and deployment considerations."
-        }
-        
-        category_guidance = task_guidance.get(request_category, "")
+        category_guidance = TASK_GUIDANCE.get(request_category, "")
         if category_guidance:
             enhanced_prompt += f"\n\nTask Category: {request_category.capitalize()}\n{category_guidance}\n"
     
@@ -79,29 +72,17 @@ def enhance_subtask_prompt(prompt: str, user_request: str, subtask: str,
     
     # Add subtask-specific guidance
     if subtask_type:
-        subtask_guidance = {
-            "research": "Provide comprehensive, well-structured findings with cited sources and a focus on recent developments.",
-            "implement": "Detail the implementation approach with consideration for scalability, maintainability, and best practices.",
-            "design": "Present the design with clear rationale, addressing user needs and technical constraints.",
-            "evaluate": "Offer data-based evaluation with clear metrics, comparison points, and actionable insights.",
-            "optimize": "Focus on specific improvements, quantifying benefits and implementation complexity.",
-            "document": "Create clear, structured documentation with appropriate technical depth.",
-            "data": "Detail data sources, preprocessing steps, quality assessments, and feature engineering.",
-            "model": "Explain model selection, training approach, hyperparameter choices, and performance metrics.",
-            "deploy": "Address deployment architecture, scaling considerations, monitoring, and maintenance.",
-            "impact": "Analyze effects across multiple dimensions with quantified metrics and stakeholder considerations."
-        }
-        
-        guidance = subtask_guidance.get(subtask_type, "")
+        guidance = SUBTASK_GUIDANCE.get(subtask_type, "")
         if guidance:
             enhanced_prompt += f"\n\nSubtask Type: {subtask_type.capitalize()}\n{guidance}\n"
     
     # Add stage awareness
-    if "research" in subtask.lower() and any(term in user_request.lower() for term in ["comprehensive", "thorough", "detailed"]):
-        enhanced_prompt += "\n\nThis is a research subtask. Be thorough and prioritize breadth and depth of information gathering."
-    elif any(term in subtask.lower() for term in ["draft", "create", "write", "develop"]):
-        enhanced_prompt += "\n\nThis is a creation subtask. Focus on generating high-quality, original content."
-    elif any(term in subtask.lower() for term in ["refine", "improve", "optimize", "edit"]):
-        enhanced_prompt += "\n\nThis is a refinement subtask. Focus on enhancing quality, efficiency, and effectiveness."
+    subtask_lower = subtask.lower()
+    if "research" in subtask_lower and any(term in user_request.lower() for term in ["comprehensive", "thorough", "detailed"]):
+        enhanced_prompt += f"\n\n{STAGE_GUIDANCE['research']}"
+    elif any(term in subtask_lower for term in ["draft", "create", "write", "develop"]):
+        enhanced_prompt += f"\n\n{STAGE_GUIDANCE['creation']}"
+    elif any(term in subtask_lower for term in ["refine", "improve", "optimize", "edit"]):
+        enhanced_prompt += f"\n\n{STAGE_GUIDANCE['refinement']}"
     
     return enhanced_prompt

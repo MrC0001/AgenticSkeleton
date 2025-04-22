@@ -17,7 +17,7 @@ except ImportError:
 from agentic_skeleton.config import settings
 
 # Global client instance
-azure_client = None
+azure_client_instance = None
 
 class AzureOpenAIClient:
     """Client class for Azure OpenAI interactions"""
@@ -37,6 +37,7 @@ class AzureOpenAIClient:
                 azure_endpoint=self.azure_endpoint,
                 api_version=self.api_version
             )
+            logging.info("Azure OpenAI client initialized successfully")
             return True
         except Exception as e:
             logging.error(f"Failed to initialize Azure OpenAI client: {e}")
@@ -59,18 +60,19 @@ class AzureOpenAIClient:
             logging.error(error_msg)
             return f"Error: {str(e)}"
 
-def initialize_client() -> Optional[Any]:
+
+def initialize_client() -> Optional[AzureOpenAIClient]:
     """
     Initialize the Azure OpenAI client.
     
     Returns:
         Azure OpenAI client if successful, None if initialization fails
     """
-    global azure_client
+    global azure_client_instance
     
     # 1. Return existing client if already initialized
-    if azure_client:
-        return azure_client
+    if azure_client_instance and azure_client_instance.client:
+        return azure_client_instance
     
     # 2. Validate configuration settings
     if not settings.validate_azure_config():
@@ -78,17 +80,10 @@ def initialize_client() -> Optional[Any]:
         return None
     
     # 3. Create new client instance
-    try:
-        azure_client = AzureOpenAI(
-            api_key=settings.AZURE_KEY,
-            azure_endpoint=settings.AZURE_ENDPOINT,
-            api_version=settings.AZURE_API_VERSION
-        )
-        logging.info("Azure OpenAI client initialized successfully")
-        return azure_client
-    except Exception as e:
-        logging.error(f"Failed to initialize Azure OpenAI client: {e}")
-        return None
+    azure_client_instance = AzureOpenAIClient()
+    if azure_client_instance.client:
+        return azure_client_instance
+    return None
 
 
 def call_azure_openai(model: str, prompt: str) -> str:
@@ -103,20 +98,9 @@ def call_azure_openai(model: str, prompt: str) -> str:
         Generated response text or error message
     """
     # 1. Get the client instance
-    client = initialize_client()
-    if not client:
-        return "Error: Azure OpenAI client not initialized"
+    client_wrapper = initialize_client()
+    if not client_wrapper:
+        return "Azure OpenAI client not initialized"
     
-    # 2. Make API call with error handling
-    try:
-        logging.info(f"Calling Azure OpenAI with model: {model}")
-        response = client.chat.completions.create(
-            model=model,
-            messages=[{"role": "system", "content": prompt}],
-            temperature=0.3
-        )
-        return response.choices[0].message.content.strip()
-    except Exception as e:
-        error_msg = f"Azure OpenAI API call failed: {e}"
-        logging.error(error_msg)
-        return f"Error: {str(e)}"
+    # 2. Make API call using the client wrapper
+    return client_wrapper.generate_completion(model, prompt)

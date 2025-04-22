@@ -7,6 +7,7 @@ Classifies user requests into predefined categories for the mock response genera
 
 import logging
 from typing import List, Dict, Tuple, Any
+from agentic_skeleton.core.mock.constants import REQUEST_CLASSIFIERS, COMPLEX_TASK_INDICATORS, GENERIC_SUBTASK_PATTERNS
 
 def classify_request(user_request: str) -> str:
     """
@@ -20,61 +21,15 @@ def classify_request(user_request: str) -> str:
     """
     request_lower = user_request.lower()
     
-    # Define classifiers with their patterns also priority fallback in case of = pattern matches... 1st match wins... call it a feature (:
-    request_classifiers = [
-        {
-            "type": "data-science",
-            "patterns": [
-                "machine learning", "ml model", "predictive model", "data mining", 
-                "train model", "neural network", "clustering", "classification algorithm",
-                "regression", "feature engineering", "data preprocessing", "dataset",
-                "predict", "forecasting", "ai model", "customer churn", "nlp", "train"
-            ]
-        },
-        {
-            "type": "analyze",
-            "patterns": [
-                "analyze", "analysis", "evaluate", "assess", "review", "study", 
-                "research", "compare", "investigate", "examine", "trends", "patterns",
-                "market analysis", "competitive analysis", "impact", "implications"
-            ]
-        },
-        {
-            "type": "design",
-            "patterns": [
-                "design", "wireframe", "sketch", "mock up", "prototype", "ui", "ux",
-                "user interface", "user experience", "layout", "visual", "graphics",
-                "augmented reality interface", "ar", "vr", "user flow", "design system"
-            ]
-        },
-        {
-            "type": "write",
-            "patterns": [
-                "write", "draft", "blog", "article", "post", "essay", "content", 
-                "copywriting", "script", "document", "report", "whitepaper", "create content"
-            ]
-        },
-        {
-            "type": "develop",
-            "patterns": [
-                "develop", "build", "implement", "code", "program", 
-                "website", "backend", "frontend", "software", "function", "class", 
-                "module", "database", "rest api"
-            ]
-        }
-    ]
-    
     # 1. Detect explicit complex multi-domain phrases
     explicit_complex_task = (
-        any(term in request_lower for term in [
-            "comprehensive plan", "end-to-end", "full stack", "multi-phase", 
-            "platform", "ecosystem", "integrated system", "launch"
-        ]) and len(request_lower.split()) > 15
+        any(term in request_lower for term in COMPLEX_TASK_INDICATORS) and 
+        len(request_lower.split()) > 15
     )
     
     # 2. Check for multiple domain matches (implicit complex task)
     domain_matches = []
-    for classifier in request_classifiers:
+    for classifier in REQUEST_CLASSIFIERS:
         matches = sum(1 for pattern in classifier["patterns"] if pattern in request_lower)
         if matches > 0:
             domain_matches.append((classifier["type"], matches))
@@ -114,10 +69,43 @@ def detect_domain_specialization(user_request: str) -> Dict[str, Any]:
     Returns:
         Dictionary with domain specialization information
     """
-    # This function should be implemented based on the domain knowledge constants
-    # It would check if the user request contains keywords from specific domains
-    # For now, return a simple placeholder
-    return {"domain": "general", "confidence": 1.0}
+    from agentic_skeleton.core.mock.constants.domain_knowledge import DOMAIN_KNOWLEDGE
+    
+    request_lower = user_request.lower()
+    domain_matches = []
+    
+    # Check each domain for keyword matches
+    for domain_name, domain_data in DOMAIN_KNOWLEDGE.items():
+        matches = [kw for kw in domain_data["keywords"] if kw in request_lower]
+        if matches:
+            domain_matches.append({
+                "domain": domain_name,
+                "matched_keywords": matches,
+                "confidence": 0.9,  # High confidence for direct keyword match
+                "subtasks": domain_data["subtasks"]
+            })
+    
+    # No specific domain detected
+    if not domain_matches:
+        return {}
+    
+    # For multi-domain requests (like "machine learning in healthcare"), 
+    # prioritize domains that may be missed in response generation
+    if len(domain_matches) > 1:
+        # If we have both ai_ml and healthcare_tech, merge them with healthcare taking precedence
+        ai_ml_match = next((match for match in domain_matches if match["domain"] == "ai_ml"), None)
+        healthcare_match = next((match for match in domain_matches if match["domain"] == "healthcare_tech"), None)
+        
+        if ai_ml_match and healthcare_match:
+            # Prioritize healthcare
+            primary_domain = healthcare_match
+            # But include the AI/ML keywords
+            primary_domain["additional_domains"] = [ai_ml_match["domain"]]
+            primary_domain["additional_keywords"] = ai_ml_match["matched_keywords"]
+            return primary_domain
+    
+    # Return the first match (most dominant) for simple cases
+    return domain_matches[0]
 
 def classify_subtask(subtask: str, domain_info: Dict[str, Any]) -> str:
     """
@@ -130,18 +118,22 @@ def classify_subtask(subtask: str, domain_info: Dict[str, Any]) -> str:
     Returns:
         Subtask type as a string
     """
-    # Placeholder implementation
     subtask_lower = subtask.lower()
     
-    if any(term in subtask_lower for term in ["research", "analyze", "study", "investigate"]):
-        return "research"
-    elif any(term in subtask_lower for term in ["implement", "build", "code", "develop", "create"]):
-        return "develop"
-    elif any(term in subtask_lower for term in ["design", "sketch", "prototype"]):
-        return "design"
-    elif any(term in subtask_lower for term in ["write", "draft", "document"]):
-        return "write"
-    elif any(term in subtask_lower for term in ["train", "model", "data"]):
-        return "data-science"
-    else:
-        return "default"
+    # If we have domain-specific information, use it for more accurate classification
+    if domain_info and "subtasks" in domain_info:
+        domain = domain_info.get("domain")
+        subtasks = domain_info.get("subtasks", {})
+        
+        # Check each subtask type in the domain
+        for subtask_type, subtask_data in subtasks.items():
+            patterns = subtask_data.get("patterns", [])
+            if any(pattern in subtask_lower for pattern in patterns):
+                return subtask_type
+    
+    # Fall back to generic classification if no domain match or no pattern match
+    for subtask_type, patterns in GENERIC_SUBTASK_PATTERNS.items():
+        if any(pattern in subtask_lower for pattern in patterns):
+            return subtask_type
+            
+    return "default"
