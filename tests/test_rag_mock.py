@@ -67,7 +67,7 @@ def test_rag_lookup_no_match_found():
     """Test RAG lookup when no keywords match any topic."""
     print("\nTesting RAG lookup: No Match Found")
     keywords = ["nonexistent", "keyword"]
-    result = rag_mock.lookup(keywords)
+    result = rag.lookup(keywords)
     print(f"  Input Keywords: {keywords}")
     print(f"  Result: {result}")
     assert result['context'] == "", "Context should be empty for no match"
@@ -81,7 +81,7 @@ def test_rag_lookup_one_match_found():
     """Test RAG lookup when keywords match exactly one topic (expect all items)."""
     print("\nTesting RAG lookup: One Match Found")
     keywords = ["alpha"]  # Matches topic1
-    result = rag_mock.lookup(keywords)
+    result = rag.lookup(keywords)
     print(f"  Input Keywords: {keywords}")
     print(f"  Result: {result}")
     expected_data = MOCK_RAG_DB_FOR_TEST["topic1"]
@@ -99,7 +99,7 @@ def test_rag_lookup_two_matches_found():
     """Test RAG lookup when keywords match two topics (expect first 2 items from each)."""
     print("\nTesting RAG lookup: Two Matches Found")
     keywords = ["test"]  # Matches topic1 and topic2
-    result = rag_mock.lookup(keywords)
+    result = rag.lookup(keywords)
     print(f"  Input Keywords: {keywords}")
     print(f"  Result: {result}")
 
@@ -131,7 +131,7 @@ def test_rag_lookup_three_matches_found():
     """Test RAG lookup when keywords match three topics (expect first 1 item from each)."""
     print("\nTesting RAG lookup: Three Matches Found")
     keywords = ["one", "beta", "gamma"]  # Matches topic1, topic2, topic3
-    result = rag_mock.lookup(keywords)
+    result = rag.lookup(keywords)
     print(f"  Input Keywords: {keywords}")
     print(f"  Result: {result}")
 
@@ -179,7 +179,7 @@ def test_rag_lookup_four_matches_found():
     """Test RAG lookup when keywords match four topics (expect first 1 item from each)."""
     print("\nTesting RAG lookup: Four Matches Found")
     keywords = ["one", "two", "three", "four"]  # Matches all topics
-    result = rag_mock.lookup(keywords)
+    result = rag.lookup(keywords)
     print(f"  Input Keywords: {keywords}")
     print(f"  Result: {result}")
 
