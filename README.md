@@ -33,15 +33,26 @@ agentic_skeleton/
 ├── config/             # Configuration
 │   └── settings.py     # Application settings
 ├── core/               # Core functionality
-│   ├── azure_integration.py  # Azure OpenAI integration
-│   └── mock_responses.py     # Mock response generation
+│   ├── azure_core.py         # Azure OpenAI integration
+│   └── mock_core.py          # Mock response generation
+│   └── azure/                # Azure-specific implementations
+│      ├── classifier.py      # Content classification
+│      ├── client.py          # Azure client wrapper
+│      ├── enhancer.py        # Content enhancement
+│      ├── generator.py       # Content generation
+│      └── constants/         # Azure constants
+│   └── mock/                 # Mock implementations
+│      ├── classifier.py      # Mock classifiers
+│      ├── generator.py       # Mock generators
+│      └── constants/         # Mock constants
 ├── misc/               # Miscellaneous utilities
 │   ├── simple_primer.py      # Simplified version of the app
 │   └── simple_primer_test.py # Test client for the simplified app
 ├── tests/              # Test suite
-│   ├── test_api.py     # API tests
-│   ├── test_integration.py  # Integration tests
-│   └── test_unit.py    # Unit tests
+│   ├── test_api.py           # API tests
+│   ├── test_azure_integration.py  # Azure integration tests
+│   ├── test_integration.py        # Integration tests
+│   └── test_unit.py          # Unit tests
 └── utils/              # Utility functions
     └── helpers.py      # Helper functions
 ```
@@ -188,7 +199,7 @@ Example output:
 Comprehensive unit tests validate the core functionality:
 
 ```bash
-python -m test_unit
+python -m pytest agentic_skeleton/tests/test_unit.py
 ```
 
 Example output:
@@ -217,7 +228,7 @@ Example output:
 Integration tests validate the full request-response cycle:
 
 ```bash
-python -m test_integration
+python -m pytest agentic_skeleton/tests/test_integration.py
 ```
 
 Example output:
@@ -247,6 +258,15 @@ Example output:
 └─────────────────────┴───────────┴───────────────┴───────────┘
 
 🛑 Stopping test server
+```
+
+### 4. Azure Integration Tests
+
+Tests for Azure OpenAI integration (requires Azure credentials):
+
+```bash
+# Make sure MOCK_RESPONSES=false in .env first
+python -m pytest agentic_skeleton/tests/test_azure_integration.py
 ```
 
 ## Enhanced Test Output
@@ -292,11 +312,12 @@ pip install termcolor
 
 ```bash
 # Run all tests
-python -m test_unit && python -m test_integration
+python -m pytest agentic_skeleton/tests/
 
 # Run a specific test file
-python -m test_unit
-python -m test_integration
+python -m pytest agentic_skeleton/tests/test_unit.py
+python -m pytest agentic_skeleton/tests/test_integration.py
+python -m pytest agentic_skeleton/tests/test_azure_integration.py
 
 # Run the basic test script (server must be running)
 python -m agentic_skeleton.misc.simple_primer_test
@@ -308,6 +329,7 @@ To add new test cases:
 
 1. For unit tests: Add new test methods to `test_unit.py`
 2. For integration tests: Add new test methods to `test_integration.py`
+3. For Azure tests: Add new test methods to `test_azure_integration.py`
 
 Example of adding a new test case:
 
@@ -329,4 +351,5 @@ def test_new_feature(self):
     # Additional assertions specific to this test case
     # ...
 ```
+
 
