@@ -2,16 +2,16 @@
 API Module
 ==========
 
-Provides the Flask API endpoints for the AgenticSkeleton application.
+Provides Flask API endpoints for the prompt enhancement service:
+- /health: Service health check and configuration info
+- /enhance_prompt: Primary endpoint for enhancing user prompts
 """
 
 import logging
 from flask import Flask, request, jsonify, Response
 
 from agentic_skeleton.config import settings
-# Update imports to use the new modular structure properly
-from agentic_skeleton.core.mock_core import generate_mock_plan_and_results
-from agentic_skeleton.core.azure_core import generate_azure_plan_and_results
+from agentic_skeleton.core import prompt_processor
 
 # Create Flask application
 app = Flask(__name__)
@@ -21,30 +21,47 @@ def health_check() -> Response:
     """
     Health check endpoint to verify service status.
     
+    Returns information about:
+    - Service operational status
+    - Whether mock mode is active
+    - Which LLM model is configured
+    - Current version
+
     Returns:
         JSON response with service status information
     """
     status = {
         "status": "healthy",
         "mode": "mock" if settings.is_using_mock() else "azure",
-        "version": "1.0.0"
+        "llm_model": settings.MODEL_PROMPT_ENHANCER, 
+        "version": "1.1.0"
     }
     logging.info(f"Health check: {status}")
     return jsonify(status)
 
-@app.route("/run-agent", methods=["POST"])
-def run_agent() -> Response:
+@app.route("/enhance_prompt", methods=["POST"])
+def enhance_prompt() -> Response:
     """
-    Main endpoint for the agent to process user requests.
+    Primary endpoint for enhancing user prompts.
+    
+    The enhancement process:
+    1. Extracts user_id and prompt from request body
+    2. Uses the prompt_processor to transform the prompt based on:
+       - User's skill level
+       - RAG context matching
+       - Skill-specific parameters
+    3. Returns the enhanced response with embedded RAG extras
+    
+    Expects JSON payload: {"user_id": "string", "prompt": "string"}
     
     Returns:
-        JSON response with plan and results
+        JSON response with {"enhanced_response": "string"} or error details
     """
     try:
-        # Get user request from JSON payload
+        # Parse and validate the JSON request payload
         try:
             payload = request.get_json()
-            if payload is None:  # A.k.a JSON is malformed
+            if payload is None:
                 logging.warning("Malformed JSON in request")
                 return jsonify({
                     "error": "Malformed JSON",
@@ -56,36 +73,47 @@ def run_agent() -> Response:
                 "error": "Malformed JSON",
                 "message": str(e)
             }), 400
-            
-        if not payload or 'request' not in payload:
-            error_msg = "Missing 'request' field in payload"
+
+        # Validate required fields exist
+        if not payload or 'user_id' not in payload or 'prompt' not in payload:
+            error_msg = "Missing 'user_id' or 'prompt' field in payload"
             logging.warning(error_msg)
             return jsonify({
-                "error": error_msg,
-                "message": "Please provide a 'request' field in your JSON payload"
+                "error": "Invalid Payload",
+                "message": error_msg
             }), 400
-            
-        user_req = payload["request"]
-        req_summary = user_req[:50] + ('...' if len(user_req) > 50 else '')
-        logging.info(f"Processing request: '{req_summary}'")
-        
-        # Process the request
-        if settings.is_using_mock():
-            subtasks, results = generate_mock_plan_and_results(user_req)
-        else:
-            subtasks, results = generate_azure_plan_and_results(user_req)
-            
-        # Return the plan and results
-        logging.info(f"Successfully processed request with {len(subtasks)} subtasks")
+
+        # Extract the payload fields
+        user_id = payload["user_id"]
+        user_prompt = payload["prompt"]
+
+        # Validate field types
+        if not isinstance(user_id, str) or not isinstance(user_prompt, str):
+             error_msg = "'user_id' and 'prompt' fields must be strings"
+             logging.warning(error_msg)
+             return jsonify({
+                 "error": "Invalid Payload Type",
+                 "message": error_msg
+             }), 400
+
+        # Log the request (truncated for privacy/length)
+        req_summary = user_prompt[:50] + ('...' if len(user_prompt) > 50 else '')
+        logging.info(f"Processing prompt enhancement for user '{user_id}': '{req_summary}'")
+
+        # Process the request through the prompt enhancement pipeline
+        enhanced_response = prompt_processor.process_prompt_request(user_id, user_prompt)
+
+        # Return the enhanced response
+        logging.info(f"Successfully processed request for user '{user_id}'")
         return jsonify({
-            "plan": subtasks,
-            "results": results
+            "enhanced_response": enhanced_response
         })
-        
+
     except Exception as e:
+        # Catch-all for unexpected errors
         error_msg = f"Unexpected error: {str(e)}"
-        logging.error(error_msg)
+        logging.exception(error_msg)  # Log full traceback
         return jsonify({
-            "error": error_msg,
+            "error": "Internal Server Error",
             "message": "An unexpected error occurred while processing the request"
         }), 500

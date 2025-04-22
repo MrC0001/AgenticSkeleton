@@ -34,7 +34,7 @@ except ImportError:
 
 # Endpoint URLs
 HEALTH_ENDPOINT = f"{BASE_URL}/health"
-AGENT_ENDPOINT = f"{BASE_URL}/run-agent"
+AGENT_ENDPOINT = f"{BASE_URL}/enhance_prompt"
 
 def pretty_print_json(data, title=None, indent=2):
     """Pretty print a JSON response with colored keys"""
@@ -94,72 +94,53 @@ def test_health():
         assert False, f"Test failed with error: {str(e)}"
 
 def test_agent_query(query="Tell me about Python programming language"):
-    """Test the run-agent endpoint with a specific query"""
+    """Test the enhance_prompt endpoint with a specific query"""
     print(f"\n{colored('📝 Testing Agent Query', 'cyan', attrs=['bold'])}")
     print(f"{colored('-' * 50, 'blue')}")
     print(f"{colored('Request:', 'blue')} \"{query}\"")
-    
+
     try:
-        # Make the request
+        # Make the request with the correct payload format
         print(f"\n{colored('Sending request...', 'yellow')}")
         start_time = time.time()
         response = requests.post(
-            AGENT_ENDPOINT, 
-            json={"request": query}
+            AGENT_ENDPOINT,
+            json={"user_id": "test_user", "prompt": query} # Corrected payload
         )
         response.raise_for_status()
         end_time = time.time()
         elapsed = end_time - start_time
-        
+
         # Process the response
         data = response.json()
-        
+
         # Display success message with timing
         print(f"{colored('✓', 'green')} {colored('Response received!', 'green')} ({elapsed:.2f}s)")
-        
-        # Display plan
-        print(f"\n{colored('Generated Plan:', 'green', attrs=['bold'])}")
-        for i, task in enumerate(data.get("plan", []), 1):
-            print(f"  {i}. {task}")
-        
-        # Display results in a table format
-        results = data.get("results", [])
-        if results:
-            print(f"\n{colored('📊 Response Summary:', 'green', attrs=['bold'])}")
-            print(f"┌{'─' * 50}┬{'─' * 50}┐")
-            print(f"│ {'Subtask':<48} │ {'Result':<48} │")
-            print(f"├{'─' * 50}┼{'─' * 50}┤")
-            
-            for result in results:
-                # Truncate and format subtask and result for table display
-                subtask = result.get('subtask', '')
-                result_text = result.get('result', '')
-                
-                # Show first 30 chars of subtask with ellipsis if needed
-                if len(subtask) > 48:
-                    subtask = subtask[:45] + "..."
-                
-                # Show first 30 chars of result with ellipsis if needed
-                if len(result_text) > 48:
-                    result_text = result_text[:45] + "..."
-                
-                print(f"│ {subtask:<48} │ {result_text:<48} │")
-            
-            print(f"└{'─' * 50}┴{'─' * 50}┘")
-        
+
+        # Display the enhanced response (adjust based on actual response structure)
+        print(f"\n{colored('Enhanced Response:', 'green', attrs=['bold'])}")
+        enhanced_response = data.get("enhanced_response", "No enhanced response found")
+        # Simple print for now, can be enhanced if response is complex
+        print(textwrap.indent(enhanced_response, '  '))
+
         # Print summary
         print(f"\n{colored('Summary:', 'blue', attrs=['bold'])}")
-        print(f"  {colored('Total tasks:', 'blue')} {len(data.get('plan', []))}")
         print(f"  {colored('Response time:', 'blue')} {elapsed:.2f} seconds")
-        
+
         # Use assertions for proper pytest behavior
         assert response.status_code == 200
-        assert "plan" in data
-        assert isinstance(data["plan"], list)
-        assert len(data["plan"]) > 0
-        
+        assert "enhanced_response" in data
+        assert isinstance(data["enhanced_response"], str)
+        assert len(data["enhanced_response"]) > 0 # Basic check
+
     except Exception as e:
         print(f"{colored('✗ Error:', 'red')} {str(e)}")
+        # Try to print response body if available on error
+        try:
+            error_data = response.json()
+            pretty_print_json(error_data, "Error Response Body:")
+        except:
+            pass # Ignore if response body isn't JSON or doesn't exist
         assert False, f"Test failed with error: {str(e)}"
 
 def run_unit_tests():
