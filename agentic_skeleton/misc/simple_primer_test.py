@@ -44,19 +44,26 @@ def test_health():
         print(json.dumps(data, indent=2))
         
         print(f"\nServer is running in {data.get('mode', 'unknown')} mode")
-        return True
+        
+        # Use assertions for proper pytest behavior
+        assert response.status_code == 200
+        assert "status" in data
+        assert data["status"] == "healthy"
         
     except requests.exceptions.ConnectionError:
         print("\nConnection Error: The server is not running.")
         print("Hint: Start the server with 'python -m agentic_skeleton.misc.simple_primer' first.")
-        return False
+        assert False, "Server is not running"
         
     except Exception as e:
         print(f"\nError: {str(e)}")
-        return False
+        assert False, f"Test failed with error: {str(e)}"
 
-def test_agent_query(query="Write a short blog post about artificial intelligence"):
+def test_agent_query(query=None):
     """Test the run-agent endpoint with a specific query"""
+    if query is None:
+        query = "Write a short blog post about artificial intelligence"
+        
     print(f"\nTesting Query: \"{query}\"")
     print("-" * 40)
     
@@ -91,11 +98,62 @@ def test_agent_query(query="Write a short blog post about artificial intelligenc
                 print(f"  Result: {result.get('result')}")
                 print()
         
-        return True
+        # Use assertions for proper pytest behavior
+        assert "plan" in data
+        assert isinstance(data["plan"], list)
+        assert len(data["plan"]) > 0
         
     except Exception as e:
         print(f"Error: {str(e)}")
-        return False
+        assert False, f"Test failed with error: {str(e)}"
+
+def test_agent_query_parametrized(query=None):
+    """Test the run-agent endpoint with a specific query"""
+    if query is None:
+        query = "Write a short blog post about artificial intelligence"
+    
+    print(f"\nTesting Query: \"{query}\"")
+    print("-" * 40)
+    
+    try:
+        # Make the request
+        print("Sending request...")
+        start_time = time.time()
+        response = requests.post(
+            AGENT_ENDPOINT, 
+            json={"request": query}
+        )
+        response.raise_for_status()
+        elapsed = time.time() - start_time
+        
+        # Process the response
+        data = response.json()
+        
+        # Display success message
+        print(f"Response received! ({elapsed:.2f}s)")
+        
+        # Display plan
+        print("\nGenerated Plan:")
+        for i, task in enumerate(data.get("plan", []), 1):
+            print(f"  {i}. {task}")
+        
+        # Display results
+        results = data.get("results", [])
+        if results:
+            print("\nResults:")
+            for result in results:
+                print(f"  Task: {result.get('subtask')}")
+                print(f"  Result: {result.get('result')}")
+                print()
+        
+        # Use assertions for proper pytest behavior
+        assert "plan" in data
+        assert isinstance(data["plan"], list)
+        assert len(data["plan"]) > 0
+        
+    except Exception as e:
+        print(f"Error: {str(e)}")
+        assert False, f"Test failed with error: {str(e)}"
 
 def run_tests():
     """Run all tests"""

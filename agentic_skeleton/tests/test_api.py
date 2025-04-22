@@ -79,16 +79,19 @@ def test_health():
         
         mode = colored(data.get('mode', 'unknown'), 'cyan')
         print(f"\n{colored('✓', 'green')} Server is {colored('running', 'green')} in {mode} mode")
-        return True
+        
+        # Use assertions for proper pytest behavior
+        assert response.status_code == 200
+        assert data.get('status') == 'healthy'
         
     except requests.exceptions.ConnectionError:
         print(f"\n{colored('✗ Connection Error:', 'red')} The server is not running.")
         print(f"  {colored('Hint:', 'yellow')} Start the server with 'python -m agentic_skeleton' first.")
-        return False
+        assert False, "Server is not running"
         
     except Exception as e:
         print(f"\n{colored('✗ Error:', 'red')} {str(e)}")
-        return False
+        assert False, f"Test failed with error: {str(e)}"
 
 def test_agent_query(query="Tell me about Python programming language"):
     """Test the run-agent endpoint with a specific query"""
@@ -146,14 +149,18 @@ def test_agent_query(query="Tell me about Python programming language"):
         
         # Print summary
         print(f"\n{colored('Summary:', 'blue', attrs=['bold'])}")
-        print(f"  {colored('Total tasks:', 'blue')} {len(data.get("plan", []))}")
+        print(f"  {colored('Total tasks:', 'blue')} {len(data.get('plan', []))}")
         print(f"  {colored('Response time:', 'blue')} {elapsed:.2f} seconds")
         
-        return True
+        # Use assertions for proper pytest behavior
+        assert response.status_code == 200
+        assert "plan" in data
+        assert isinstance(data["plan"], list)
+        assert len(data["plan"]) > 0
         
     except Exception as e:
         print(f"{colored('✗ Error:', 'red')} {str(e)}")
-        return False
+        assert False, f"Test failed with error: {str(e)}"
 
 def run_unit_tests():
     """Run the unit tests"""

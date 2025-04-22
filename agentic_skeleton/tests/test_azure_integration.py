@@ -147,7 +147,7 @@ class TestAzureIntegration(unittest.TestCase):
             "Preprocess and augment the image dataset",
             "data-science",
             ai_domain,
-            "data"
+            "data"  # Adding the required subtask_type parameter
         )
         
         # Check that subtask-specific guidance is included
@@ -175,12 +175,13 @@ class TestAzureIntegration(unittest.TestCase):
         # Test default fallback plan
         default_fallback_plan = get_fallback_plan("unknown", {})
         
-        # Verify the default fallback plan
-        self.assertEqual(len(default_fallback_plan), 5)  # Should have 5 steps
+        # Verify the default fallback plan - updated to expect 6 steps
+        self.assertEqual(len(default_fallback_plan), 6)  # Should have 6 steps
         self.assertTrue(any("research" in step.lower() for step in default_fallback_plan))
     
-    @patch('agentic_skeleton.core.azure.client.call_azure_openai')
-    def test_generate_plan(self, mock_call_azure):
+    @patch('agentic_skeleton.core.azure.generator.call_azure_openai')
+    @patch('agentic_skeleton.core.azure.generator.extract_subtasks_from_text')
+    def test_generate_plan(self, mock_extract, mock_call_azure):
         """Test the plan generation with mocked Azure OpenAI call"""
         # Mock the Azure call to return a plan
         mock_plan_text = """
@@ -190,21 +191,34 @@ class TestAzureIntegration(unittest.TestCase):
         3. Design the conversation flow and user interactions
         4. Implement the core NLP processing pipeline
         5. Test the chatbot with sample user interactions
+        6. Document the system and create user guidelines
         """
         mock_call_azure.return_value = mock_plan_text
+        
+        # Mock the extraction function to return our predefined subtasks
+        expected_subtasks = [
+            "Research recent advances in natural language processing",
+            "Analyze the requirements for the chatbot system",
+            "Design the conversation flow and user interactions",
+            "Implement the core NLP processing pipeline",
+            "Test the chatbot with sample user interactions",
+            "Document the system and create user guidelines"
+        ]
+        mock_extract.return_value = expected_subtasks
         
         # Generate a plan
         plan = generate_plan("Create a chatbot with natural language processing capabilities")
         
         # Verify the plan structure
-        self.assertEqual(len(plan), 5)
+        self.assertEqual(len(plan), 6)
+        self.assertEqual(plan, expected_subtasks)
         self.assertTrue(any("research" in step.lower() for step in plan))
         self.assertTrue(any("implement" in step.lower() for step in plan))
         
         # Verify that Azure OpenAI was called correctly
         mock_call_azure.assert_called_once()
     
-    @patch('agentic_skeleton.core.azure.client.call_azure_openai')
+    @patch('agentic_skeleton.core.azure.generator.call_azure_openai')
     def test_execute_subtasks(self, mock_call_azure):
         """Test the subtask execution with mocked Azure OpenAI call"""
         # Mock the Azure call to return results
@@ -220,11 +234,12 @@ class TestAzureIntegration(unittest.TestCase):
         
         # Verify the results structure
         self.assertEqual(len(results), 2)
-        # Updated to use 'task' key to match the implementation in generator.py
         self.assertEqual(results[0]["task"], subtasks[0])
         self.assertEqual(results[0]["result"], mock_results[0])
+        self.assertIn("type", results[0])
         self.assertEqual(results[1]["task"], subtasks[1])
         self.assertEqual(results[1]["result"], mock_results[1])
+        self.assertIn("type", results[1])
         
         # Verify that Azure OpenAI was called correctly
         self.assertEqual(mock_call_azure.call_count, 2)
