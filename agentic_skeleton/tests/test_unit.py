@@ -16,9 +16,15 @@ from unittest.mock import patch, MagicMock
 
 # Import necessary modules from our package
 from agentic_skeleton.api.endpoints import app
-from agentic_skeleton.core.mock_responses import classify_request, get_mock_task_response
+from agentic_skeleton.core.mock.generator import get_mock_task_response
+from agentic_skeleton.core.mock.classifier import classify_request
 from agentic_skeleton.config import settings
 from agentic_skeleton.utils.helpers import colored, format_terminal_header
+
+# Import constants from their new locations
+from agentic_skeleton.core.mock.constants.mock_responses import MOCK_RESPONSES
+from agentic_skeleton.core.mock.constants.mock_plans import MOCK_PLANS
+from agentic_skeleton.core.mock.constants.domain_knowledge import DOMAIN_KNOWLEDGE
 
 # Configure logging for tests
 logging.basicConfig(level=logging.ERROR)
@@ -106,35 +112,43 @@ class TestAgenticSkeleton(unittest.TestCase):
     
     def test_azure_mode(self):
         """Test the Azure mode of operation"""
-        # Patch the settings instead of directly patching USE_MOCK
+        # Patch the settings to ensure we're not using mock mode
         with patch('agentic_skeleton.config.settings.is_using_mock', return_value=False):
-            # Also patch the Azure client to avoid actual API calls
-            with patch('agentic_skeleton.core.azure_integration.azure_client') as mock_client:
+            # Patch the initialize_client function to return our mock client
+            with patch('agentic_skeleton.core.azure.client.initialize_client') as mock_initialize_client:
+                # Create a mock client with the expected structure
+                mock_client = MagicMock()
+                mock_initialize_client.return_value = mock_client
+                
                 # Mock the completion response
                 mock_response = MagicMock()
+                mock_response.choices = [MagicMock()]
                 mock_response.choices[0].message.content = "1. First subtask\n2. Second subtask"
                 mock_client.chat.completions.create.return_value = mock_response
                 
                 # Import after patching
-                from agentic_skeleton.core.azure_integration import call_azure_openai
+                from agentic_skeleton.core.azure.generator import call_azure_openai
                 
                 # Test the function
                 result = call_azure_openai("gpt-4", "Test prompt")
                 self.assertEqual(result, "1. First subtask\n2. Second subtask")
                 
-                # Verify the mock was called with correct parameters
+                # Verify the mock was called
                 mock_client.chat.completions.create.assert_called_once()
     
     def test_azure_openai_error_handling(self):
         """Test error handling in the Azure OpenAI call function"""
         # Patch the settings instead of directly patching USE_MOCK
         with patch('agentic_skeleton.config.settings.is_using_mock', return_value=False):
-            # Make the Azure client raise an exception
-            with patch('agentic_skeleton.core.azure_integration.azure_client') as mock_client:
+            # Also patch the Azure client class instead of attribute
+            with patch('agentic_skeleton.core.azure.client.AzureOpenAIClient') as mock_client_class:
+                # Setup the mock client to raise an exception
+                mock_client = MagicMock()
+                mock_client_class.return_value = mock_client
                 mock_client.chat.completions.create.side_effect = Exception("API error")
                 
                 # Import after patching
-                from agentic_skeleton.core.azure_integration import call_azure_openai
+                from agentic_skeleton.core.azure.generator import call_azure_openai
                 
                 # Test that errors are handled
                 result = call_azure_openai("gpt-4", "Test prompt")
@@ -178,8 +192,6 @@ class TestAgenticSkeleton(unittest.TestCase):
     
     def test_mock_responses_format(self):
         """Test that all mock responses can be formatted correctly"""
-        from agentic_skeleton.core.mock_responses import MOCK_RESPONSES
-        
         for category, templates in MOCK_RESPONSES.items():
             for template in templates:
                 # Test that each template can be formatted without errors
@@ -188,8 +200,6 @@ class TestAgenticSkeleton(unittest.TestCase):
     
     def test_plan_structure(self):
         """Test that all plans have properly structured tasks"""
-        from agentic_skeleton.core.mock_responses import MOCK_PLANS
-        
         for plan_type, tasks in MOCK_PLANS.items():
             # Ensure each plan has between 3 and 7 tasks
             self.assertTrue(3 <= len(tasks) <= 7, f"Plan '{plan_type}' has {len(tasks)} tasks")
@@ -299,46 +309,83 @@ class TestAgenticSkeleton(unittest.TestCase):
         # Ensure we have a valid plan and results
         self.assertTrue(len(data['plan']) >= 3)
         self.assertTrue(len(data['results']) >= 3)
-
-
-def run_tests():
-    """Run the unit tests with formatted output"""
-    format_terminal_header("Unit Tests", settings.is_using_mock())
     
-    # Start timing
-    start_time = time.time()
-    
-    # Run tests
-    test_result = unittest.main(argv=['first-arg-is-ignored'], exit=False).result
-    
-    # Calculate timing
-    elapsed_time = time.time() - start_time
-    
-    # Calculate statistics
-    tests_run = test_result.testsRun
-    failures = len(test_result.failures)
-    errors = len(test_result.errors)
-    passed = tests_run - failures - errors
-    success_rate = (passed / tests_run) * 100 if tests_run > 0 else 0
-    
-    # Print summary with consistent colored output
-    print(f"\n{colored('📊 Test Run Summary:', 'cyan', attrs=['bold'])}")
-    print(f"{colored('─' * 50, 'blue')}")
-    print(f"  {colored('Total tests:', 'yellow')} {tests_run}")
-    print(f"  {colored('Passed:', 'green')} {passed}")
-    print(f"  {colored('Failed:', 'red')} {failures}")
-    print(f"  {colored('Errors:', 'red')} {errors}")
-    print(f"  {colored('Skipped:', 'yellow')} {len(test_result.skipped)}")
-    print(f"  {colored('Total time:', 'blue')} {elapsed_time:.3f} seconds")
-    
-    # Color-coded success rate
-    status_color = 'green' if success_rate >= 90 else ('yellow' if success_rate >= 75 else 'red')
-    print(f"  {colored('Success rate:', 'cyan')} {colored(f'{success_rate:.1f}%', status_color)}")
-
-
-
-
+    def test_domain_knowledge_structure(self):
+        """Test the structure and functionality of the DOMAIN_KNOWLEDGE system"""
+        print(f"\n{colored('Testing domain knowledge system...', 'blue')}")
+        
+        # 1. Verify overall structure of domain knowledge
+        print(f"\n{colored('Validating domain knowledge structure...', 'green')}")
+        
+        # Ensure we have domain knowledge entries
+        self.assertTrue(len(DOMAIN_KNOWLEDGE) > 0, "Domain knowledge should not be empty")
+        
+        # Check each domain entry has the required fields
+        for domain_name, domain_data in DOMAIN_KNOWLEDGE.items():
+            self.assertIn("keywords", domain_data, f"Domain {domain_name} missing keywords")
+            self.assertIn("subtasks", domain_data, f"Domain {domain_name} missing subtasks")
+            
+            # Check subtasks have valid structure
+            for subtask_name, subtask_data in domain_data["subtasks"].items():
+                self.assertIn("patterns", subtask_data, f"Subtask {subtask_name} missing patterns")
+                self.assertIn("template", subtask_data, f"Subtask {subtask_name} missing template")
+                self.assertIn("variables", subtask_data, f"Subtask {subtask_name} missing variables")
+                
+                # Test format with dummy values
+                try:
+                    format_args = {
+                        "topic": "test_topic",
+                        **{name: "test_value" for name in subtask_data["variables"]}
+                    }
+                    formatted = subtask_data["template"].format(**format_args)
+                    self.assertTrue(len(formatted) > 20, "Formatted template too short")
+                except KeyError as e:
+                    self.fail(f"Template formatting error for {domain_name}.{subtask_name}: {e}")
+                except ValueError as e:
+                    self.fail(f"Value error in template for {domain_name}.{subtask_name}: {e}")
+            
+        # Test that get_mock_task_response correctly uses domain knowledge
+        for domain_name, domain_data in DOMAIN_KNOWLEDGE.items():
+            # Pick a keyword and create a task using it
+            keyword = domain_data["keywords"][0]
+            test_task = f"Research the latest trends in {keyword} technology"
+            
+            # Get response for this task
+            response = get_mock_task_response(test_task)
+            
+            # Verify response is meaningful
+            self.assertTrue(len(response) > 50, f"Response for {keyword} too short: {response}")
+            self.assertIn("[MOCK]", response, f"Response missing [MOCK] indicator: {response}")
+            
+            # Verify keyword is in response
+            self.assertIn(keyword.lower(), response.lower(), f"Keyword not found in response: {response}")
 
 
 if __name__ == "__main__":
-    run_tests()
+    # Print header with ASCII art
+    header = format_terminal_header("🤖 Unit Tests")
+    print(header)
+    
+    # Print mode information
+    print(f"Running in {colored('MOCK' if settings.is_using_mock() else 'AZURE', 'yellow')} mode")
+    
+    # Run the tests
+    result = unittest.main(exit=False)
+    
+    # Print summary
+    total = result.result.testsRun
+    failures = len(result.result.failures)
+    errors = len(result.result.errors)
+    skipped = len(result.result.skipped)
+    passed = total - failures - errors - skipped
+    success_rate = (passed / total) * 100 if total > 0 else 0
+    
+    print("\n📊 Test Run Summary:")
+    print("──────────────────────────────────────────────────")
+    print(f"  Total tests: {total}")
+    print(f"  Passed: {passed}")
+    print(f"  Failed: {failures}")
+    print(f"  Errors: {errors}")
+    print(f"  Skipped: {skipped}")
+    print(f"  Total time: {result.result.testsRun / 1000:.3f} seconds")
+    print(f"  Success rate: {success_rate:.1f}%")

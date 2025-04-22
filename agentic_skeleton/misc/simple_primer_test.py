@@ -55,7 +55,7 @@ def test_health():
         print(f"\nError: {str(e)}")
         return False
 
-def test_agent_query(query):
+def test_agent_query(query="Write a short blog post about artificial intelligence"):
     """Test the run-agent endpoint with a specific query"""
     print(f"\nTesting Query: \"{query}\"")
     print("-" * 40)

@@ -9,8 +9,9 @@ import logging
 from flask import Flask, request, jsonify, Response
 
 from agentic_skeleton.config import settings
-from agentic_skeleton.core.mock_responses import generate_mock_plan_and_results
-from agentic_skeleton.core.azure_integration import generate_azure_plan_and_results
+# Update imports to use the new modular structure properly
+from agentic_skeleton.core.mock_core import generate_mock_plan_and_results
+from agentic_skeleton.core.azure_core import generate_azure_plan_and_results
 
 # Create Flask application
 app = Flask(__name__)
@@ -30,10 +31,6 @@ def health_check() -> Response:
     }
     logging.info(f"Health check: {status}")
     return jsonify(status)
-
-
-
-
 
 @app.route("/run-agent", methods=["POST"])
 def run_agent() -> Response:

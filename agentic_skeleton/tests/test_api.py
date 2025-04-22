@@ -90,7 +90,7 @@ def test_health():
         print(f"\n{colored('✗ Error:', 'red')} {str(e)}")
         return False
 
-def test_agent_query(query):
+def test_agent_query(query="Tell me about Python programming language"):
     """Test the run-agent endpoint with a specific query"""
     print(f"\n{colored('📝 Testing Agent Query', 'cyan', attrs=['bold'])}")
     print(f"{colored('-' * 50, 'blue')}")
@@ -146,7 +146,7 @@ def test_agent_query(query):
         
         # Print summary
         print(f"\n{colored('Summary:', 'blue', attrs=['bold'])}")
-        print(f"  {colored('Total tasks:', 'blue')} {len(data.get('plan', []))}")
+        print(f"  {colored('Total tasks:', 'blue')} {len(data.get("plan", []))}")
         print(f"  {colored('Response time:', 'blue')} {elapsed:.2f} seconds")
         
         return True
@@ -158,20 +158,26 @@ def test_agent_query(query):
 def run_unit_tests():
     """Run the unit tests"""
     try:
-        from agentic_skeleton.tests.test_unit import run_tests
-        run_tests()
-    except ImportError:
-        print(f"{colored('✗ Error:', 'red')} Could not import unit tests.")
-        print(f"  {colored('Hint:', 'yellow')} Make sure you're running this from the project root.")
+        import pytest
+        import sys
+        print(f"\n{colored('Running Unit Tests', 'blue', attrs=['bold'])}")
+        sys.argv = [sys.argv[0], 'agentic_skeleton/tests/test_unit.py', '-v']
+        pytest.main()
+    except ImportError as e:
+        print(f"{colored('✗ Error:', 'red')} Could not import pytest: {e}")
+        print(f"  {colored('Hint:', 'yellow')} Make sure pytest is installed in your environment.")
 
 def run_integration_tests():
     """Run the integration tests"""
     try:
-        from agentic_skeleton.tests.test_integration import run_tests
-        run_tests()
-    except ImportError:
-        print(f"{colored('✗ Error:', 'red')} Could not import integration tests.")
-        print(f"  {colored('Hint:', 'yellow')} Make sure you're running this from the project root.")
+        import pytest
+        import sys
+        print(f"\n{colored('Running Integration Tests', 'blue', attrs=['bold'])}")
+        sys.argv = [sys.argv[0], 'agentic_skeleton/tests/test_integration.py', '-v']
+        pytest.main()
+    except ImportError as e:
+        print(f"{colored('✗ Error:', 'red')} Could not import pytest: {e}")
+        print(f"  {colored('Hint:', 'yellow')} Make sure pytest is installed in your environment.")
 
 def main():
     """Run the API test client with command line options"""
