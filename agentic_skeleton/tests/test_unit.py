@@ -363,7 +363,7 @@ class TestAgenticSkeleton(unittest.TestCase):
 
 if __name__ == "__main__":
     # Print header with ASCII art
-    header = format_terminal_header("🤖 Unit Tests")
+    header = format_terminal_header("🤖 Unit Tests", settings.is_using_mock())
     print(header)
     
     # Print mode information
@@ -387,5 +387,4 @@ if __name__ == "__main__":
     print(f"  Failed: {failures}")
     print(f"  Errors: {errors}")
     print(f"  Skipped: {skipped}")
-    print(f"  Total time: {result.result.testsRun / 1000:.3f} seconds")
     print(f"  Success rate: {success_rate:.1f}%")
