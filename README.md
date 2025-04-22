@@ -480,7 +480,119 @@ Detected domain:
   Preferred category: data-science
 ✅ AI/ML domain detection verified
 
-// ... more test output ...
+Healthcare request:
+  "Build a telehealth platform for remote patient monitoring"
+Detected domain:
+  Name: healthcare_tech
+  Preferred category: analyze
+✅ Healthcare tech domain detection verified
+
+Generic request:
+  "Write a blog post about company culture"
+Detected domain:
+  No specific domain detected
+✅ Generic domain detection verified
+
+Testing subtask classification...
+
+Basic subtask classification:
+  ✓ [Research recent advances in natural language processing] → [research]
+  ✓ [Implement a user authentication system] → [implement]
+  ✓ [Design a database schema for user profiles] → [design]
+  ✓ [Test the API endpoints for performance] → [evaluate]
+  ✓ [Document the system architecture] → [document]
+
+AI/ML domain subtask classification:
+  ✓ [Gather and preprocess training data] → [data]
+  ✓ [Train the classification model] → [model]
+  ✓ [Deploy the model as a prediction API] → [deploy]
+
+Cloud computing domain subtask classification:
+  ✓ [Research cost optimization strategies] → [research]
+  ✓ [Implement auto-scaling policies] → [implement]
+  ✓ [Optimize resource allocation] → [optimize]
+✅ Subtask classification verified for all types
+
+Testing prompt enhancement capabilities...
+
+Basic prompt enhancement:
+  Original prompt: "Generate a response for the following task:"
+  User request: "Build a machine learning model for customer churn prediction"
+  Category: "data-science"
+  Enhanced prompt length: 161 chars
+
+Domain-specific prompt enhancement:
+  Original prompt: "Generate a response for the following task:"
+  User request: "Train a neural network for image recognition"
+  Domain: "ai_ml"
+  Enhanced prompt length: 362 chars
+
+Subtask prompt enhancement:
+  Original prompt: "Generate a response for the following task:"
+  User request: "Train a neural network for image recognition"
+  Subtask: "Preprocess and augment the image dataset"
+  Subtask type: "data"
+  Enhanced prompt length: 471 chars
+✅ Prompt enhancement verified for all scenarios
+
+Testing fallback plan generation...
+
+AI/ML domain fallback plan:
+  1. Define the problem statement and analysis objectives
+  2. Collect and prepare the dataset for analysis
+  3. Perform exploratory data analysis to understand patterns
+  4. Engineer features and preprocess data for modeling
+  5. Train and evaluate machine learning models
+  6. Deploy the model and create a system for predictions
+
+Writing category fallback plan:
+  1. Research the topic and gather relevant information
+  2. Create an outline with key points and structure
+  3. Draft the initial content following the outline
+  4. Review and revise the content for clarity and coherence
+  5. Edit for grammar, style, and formatting
+  6. Prepare the final version with any necessary citations
+
+Default fallback plan:
+  1. Research the topic and gather relevant information
+  2. Analyze the key components and requirements
+  3. Develop an initial solution or approach
+  4. Test and validate the solution
+  5. Refine and optimize based on testing results
+  6. Prepare final documentation and delivery
+✅ Fallback plan generation verified for all scenarios
+
+Testing plan generation with Azure...
+
+User request:
+  "Create a chatbot with natural language processing capabilities"
+
+Generated plan:
+  1. Research recent advances in natural language processing
+  2. Analyze the requirements for the chatbot system
+  3. Design the conversation flow and user interactions
+  4. Implement the core NLP processing pipeline
+  5. Test the chatbot with sample user interactions
+  6. Document the system and create user guidelines
+✅ Plan generation with Azure verified
+
+Testing subtask execution with Azure...
+
+User request:
+  "Create an NLP chatbot"
+
+Subtasks to execute:
+  1. Research NLP techniques for intent recognition
+  2. Design an architecture for the chatbot system
+
+Results:
+  Task 1: Research NLP techniques for intent recognition
+    Type: research
+    Result sample: Result for subtask 1: Based on recent research in NLP, the most effective techniques for intent reco...
+  Task 2: Design an architecture for the chatbot system
+    Type: design
+    Result sample: Result for subtask 2: The recommended architecture for the chatbot system includes a natural languag...
+✅ Subtask execution with Azure verified
 
 Testing complete workflow with Azure integration
 
@@ -508,8 +620,8 @@ Results:
 
 📊 Test Run Summary:
 ──────────────────────────────────────────────────
-  Total tests: 7
-  Passed: 7
+  Total tests: 8
+  Passed: 8
   Failed: 0
   Errors: 0
   Skipped: 0
