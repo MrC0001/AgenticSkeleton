@@ -3,10 +3,12 @@ Utility Functions
 ================
 
 Provides helper functions for the application including:
-- Terminal output formatting
-- Text processing
-- Mock response generation
-- Azure OpenAI integration
+- Terminal output formatting and colored logging
+- Dependency management (auto-installation)
+- Application initialization utilities
+
+These utilities support the core functionality of the application
+by providing common helper functions used across multiple modules.
 """
 
 import sys
@@ -16,7 +18,8 @@ import re
 import subprocess
 from typing import Dict, List, Any, Optional, Tuple, Union
 
-_termcolor_imported = False  # Flag to track if termcolor was successfully imported
+# Flag to track if termcolor was successfully imported
+_termcolor_imported = False
 
 # Try to import termcolor for colored terminal output
 try:
@@ -32,6 +35,15 @@ except ImportError:
 def ensure_termcolor_installed():
     """
     Check if termcolor is installed and install it if not.
+    
+    This function:
+    1. Checks if termcolor is already imported successfully
+    2. If not, attempts to install it using pip
+    3. Re-imports and updates the global function if installation succeeds
+    4. Gracefully continues with a basic implementation if installation fails
+    
+    This approach allows the application to work even without the
+    termcolor package while providing enhanced output when available.
 
     Returns:
         None
@@ -59,9 +71,14 @@ def ensure_termcolor_installed():
 def setup_logging():
     """
     Configure logging for the application with colored output.
-
+    
+    Sets up:
+    1. Basic logging configuration with timestamp and level
+    2. Enhanced logging with color-coded log levels for better readability
+    3. Custom log record factory for output formatting
+    
     Returns:
-        None
+        logging: Configured logging module
     """
     logging.basicConfig(
         level=logging.INFO,
@@ -69,13 +86,13 @@ def setup_logging():
         stream=sys.stdout
     )
 
-    # Enhance logging with colored output
+    # Enhance logging with colored output using a custom record factory
     original_factory = logging.getLogRecordFactory()
 
     def colored_record_factory(*args, **kwargs):
         record = original_factory(*args, **kwargs)
 
-        # Add color based on log level
+        # Add color based on log level for better visual distinction
         levelname = record.levelname
         if levelname == 'DEBUG':
             record.levelname = colored(levelname, 'cyan')
@@ -98,18 +115,33 @@ def setup_logging():
 def format_terminal_header(app_name: str, use_mock: bool):
     """
     Format a nice header for terminal output.
-
+    
+    Creates an eye-catching, colored terminal header that:
+    1. Clearly identifies the application by name
+    2. Indicates whether the application is running in mock mode
+    3. Provides visual separation from other terminal output
+    
     Args:
-        app_name: The name of the application
-        use_mock: Whether the app is using mock mode
-
+        app_name: The name of the application to display
+        use_mock: Boolean indicating if mock mode is active
+        
     Returns:
-        None (prints to terminal)
+        None (prints directly to terminal)
     """
+    # Create a border line
     border = colored("=" * 69, "blue")
+    
+    # Format the app name with robot emoji and proper styling
+    app_title = colored(f"🤖 {app_name}", "cyan", attrs=["bold"])
+    
+    # Format the mode indication based on mock status
+    mode_text = colored("MOCK", "yellow", attrs=["bold"]) if use_mock else colored("AZURE", "green", attrs=["bold"])
+    
+    # Format the complete header line
+    header_line = f"{app_title} - Running in {mode_text} mode"
+    
+    # Print the formatted header
     print(border)
+    print(header_line)
 
-    # Show the app header with mode info
-    title = colored(f"🤖 {app_name}", "cyan", attrs=["bold"])
-    mode = colored("MOCK", "yellow", attrs=["bold"]) if use_mock else colored("AZURE", "green", attrs=["bold"])
-    print(f"{title} - Running in {mode} mode")
+# More utility functions could be added here as the application grows

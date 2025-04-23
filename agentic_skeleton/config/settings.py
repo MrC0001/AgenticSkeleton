@@ -2,8 +2,18 @@
 Configuration Module
 ===================
 
-Handles loading of environment variables and configuration settings for the prompt enhancement service.
-Supports both mock mode (for development/testing) and live Azure OpenAI mode.
+Central configuration management for the prompt enhancement service.
+
+This module:
+1. Loads environment variables from .env file (if present)
+2. Defines application-wide settings and constants
+3. Provides helper functions for configuration validation and access
+4. Manages both mock mode (for development/testing) and Azure OpenAI mode
+
+Configuration categories:
+- Service settings (mode, endpoints, ports)
+- Prompt enhancement parameters (skill levels, templates)
+- Mock data (user profiles, RAG database)
 """
 
 import os
@@ -14,15 +24,19 @@ from typing import Dict, Any
 # Load environment variables from .env file if present
 load_dotenv()
 
-# --- Service Configuration ---
+# -------------------------------------------------
+# --- Service Configuration                     ---
+# -------------------------------------------------
 
-# Mode Configuration: Mock mode doesn't make real Azure OpenAI API calls
+# Mode Configuration: 
+# - Mock mode: For development and testing without real API calls
+# - Azure mode: For production with real Azure OpenAI integration
 USE_MOCK = os.getenv("MOCK_RESPONSES", "true").lower() == "true"
 
 # Azure OpenAI Configuration (only used if USE_MOCK is False)
 AZURE_KEY = os.getenv("AZURE_OPENAI_KEY", "").lower()
 AZURE_ENDPOINT = os.getenv("AZURE_OPENAI_ENDPOINT", "").lower()
-AZURE_API_VERSION = "2024-10-21" # GA version
+AZURE_API_VERSION = "2024-10-21"  # GA version
 
 # Model Configuration: Model deployment name in Azure 
 MODEL_PROMPT_ENHANCER = os.getenv("MODEL_PROMPT_ENHANCER", "gpt-4").lower()
@@ -31,39 +45,45 @@ MODEL_PROMPT_ENHANCER = os.getenv("MODEL_PROMPT_ENHANCER", "gpt-4").lower()
 PORT = int(os.getenv("PORT", "8000"))
 
 
-# --- Prompt Enhancement Configuration ---
+# -------------------------------------------------
+# --- Prompt Enhancement Configuration          ---
+# -------------------------------------------------
 
-# Skill Levels (Extensible: Add new skill level strings here)
+# Skill Levels define user expertise tiers to adapt responses
+# The system can be extended with new skill levels as needed
 SKILL_LEVELS = ('BEGINNER', 'INTERMEDIATE', 'EXPERT', 'BANK_AMBASSADOR_TRAINEE')
 
-# Skill-Based Parameters (Map parameters to SKILL_LEVELS)
+# Skill-Based Parameters map configuration values to each skill level
+# These determine how the LLM behaves for users of different expertise
 SKILL_PARAMS = {
     'BEGINNER': {
         'system_prompt_addon': "Explain concepts simply, provide step-by-step guidance, and define banking terms.",
-        'temperature': 0.7,
-        'max_tokens': 500
+        'temperature': 0.7,  # Higher temperature for more varied/helpful responses
+        'max_tokens': 500    # Longer responses with more explanations
     },
     'INTERMEDIATE': {
         'system_prompt_addon': "Assume some familiarity with banking concepts. Focus on practical application and cross-service connections.",
-        'temperature': 0.5,
-        'max_tokens': 450
+        'temperature': 0.5,  # Balanced creativity and precision
+        'max_tokens': 450    # Moderate length responses
     },
     'EXPERT': {
         'system_prompt_addon': "Provide concise, expert-level insights. Focus on strategic value and advanced integration points.",
-        'temperature': 0.3,
-        'max_tokens': 400
+        'temperature': 0.3,  # Lower temperature for more precise responses
+        'max_tokens': 400    # Shorter, more concise responses
     },
     'BANK_AMBASSADOR_TRAINEE': {
         'system_prompt_addon': "Focus on the basics of bank services and how to talk about them simply. Encourage asking questions.",
-        'temperature': 0.8,
-        'max_tokens': 550
+        'temperature': 0.8,  # Highest temperature for varied, encouraging responses
+        'max_tokens': 550    # Longest responses with more examples
     }
 }
 
-# Default Persona (Can be overridden in prompt_engineering.format_prompt_pqr)
+# Default Persona defines the base role of the assistant
+# This can be overridden in the prompt formatting function
 DEFAULT_PERSONA = "You are a helpful Internal Banking Advisor, dedicated to helping colleagues understand and promote the bank's diverse range of services to foster collaboration and ambassadorship."
 
-# Restrictions Template (Placeholders like [topic] can be filled dynamically)
+# Restrictions Template provides guardrails for the LLM responses
+# The [topic] placeholder is dynamically replaced based on matched RAG topics
 RESTRICTIONS_TEMPLATE = """
 Restrictions:
 - Prioritize mentioning relevant internal bank services and products.
@@ -74,7 +94,12 @@ Restrictions:
 - If discussing [topic], ensure alignment with the bank's official messaging on that service.
 """
 
-# Mock User Profiles (Lookup table for user_id -> skill_level)
+# -------------------------------------------------
+# --- Mock Data for Development/Testing         ---
+# -------------------------------------------------
+
+# Mock User Profiles simulate different user types with varying skill levels
+# In production, this would be replaced with a real user database
 MOCK_USER_PROFILES = {
     "user001": {"name": "Alice", "skill_level": "INTERMEDIATE"},
     "user002": {"name": "Bob", "skill_level": "BEGINNER"},
@@ -82,7 +107,8 @@ MOCK_USER_PROFILES = {
     "user005": {"name": "Eve", "skill_level": "EXPERT"},
 }
 
-# Mock RAG Database (Maps topics to their keywords, context, and extras)
+# Mock RAG Database maps topics to their keywords, context, and extras
+# This simulates a knowledge base that would normally be in a vector database
 MOCK_RAG_DB = {
     "internal_mobility_program": {
         "keywords": ["internal mobility", "career growth", "job openings", "internal transfer"],
@@ -121,20 +147,30 @@ MOCK_RAG_DB = {
     }
 }
 
+# RAG Configuration
+NUM_KEYWORDS = 5  # Number of keywords to extract for RAG lookup
 
-# --- Utility Functions ---
+
+# -------------------------------------------------
+# --- Configuration Utility Functions           ---
+# -------------------------------------------------
 
 def get_config() -> Dict[str, Any]:
     """
-    Get the full application configuration as a dictionary.
-
+    Retrieve the full application configuration as a dictionary.
+    
+    This function is useful for:
+    - Debugging configuration issues
+    - Passing the full configuration to other components
+    - Exposing configuration through admin endpoints
+    
     Returns:
         Dict containing all configuration settings
     """
     config = {
         "use_mock": USE_MOCK,
         "port": PORT,
-        "azure_key": AZURE_KEY,
+        "azure_key": AZURE_KEY[:5] + "..." if AZURE_KEY else "",  # Redacted for security
         "azure_endpoint": AZURE_ENDPOINT,
         "azure_api_version": AZURE_API_VERSION,
         "model_prompt_enhancer": MODEL_PROMPT_ENHANCER,
@@ -143,43 +179,59 @@ def get_config() -> Dict[str, Any]:
         "default_persona": DEFAULT_PERSONA,
         "restrictions_template": RESTRICTIONS_TEMPLATE,
         "mock_user_profiles": MOCK_USER_PROFILES,
-        "mock_rag_db": MOCK_RAG_DB,
+        "mock_rag_db_topics": list(MOCK_RAG_DB.keys()),  # Just the topics, not the full data
     }
     return config
 
 
 def is_using_mock() -> bool:
     """
-    Check if the application is configured to use mock responses for LLM calls.
-
+    Check if the application is configured to use mock responses instead of real LLM calls.
+    
+    This is used throughout the application to determine:
+    - Whether to initialize Azure clients
+    - Which response generation path to take
+    - What information to display in debug/logging
+    
     Returns:
-        True if using mock mode, False otherwise
+        True if using mock mode, False if using Azure
     """
     return USE_MOCK
 
 
 def validate_azure_config() -> bool:
     """
-    Validate Azure OpenAI configuration if not using mock mode.
-
+    Validate the Azure OpenAI configuration when not using mock mode.
+    
+    Checks:
+    - API key is provided
+    - Endpoint URL is provided
+    - Model deployment name is provided
+    
+    In mock mode, validation always passes as Azure config isn't needed.
+    
     Returns:
-        True if the configuration is valid for Azure use, False otherwise
+        True if the configuration is valid for Azure use or mock mode is enabled
     """
     if USE_MOCK:
         return True
     return bool(AZURE_KEY and AZURE_ENDPOINT and MODEL_PROMPT_ENHANCER)
 
 
-# --- Setup Logging ---
+# -------------------------------------------------
+# --- Logging Configuration                     ---
+# -------------------------------------------------
+
+# Configure logging
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
 logger = logging.getLogger(__name__)
 
-# Log mode status on import
+# Log configuration status on module import
 if is_using_mock():
     logger.info("Application configured to use MOCK responses.")
 else:
     logger.info("Application configured to use AZURE OpenAI.")
     if not validate_azure_config():
-        logger.warning("Azure configuration is incomplete. Azure API calls may fail.")
+        logger.warning("Azure configuration is incomplete. Azure API calls will fail.")
     else:
-        logger.info("Azure configuration appears valid.")
+        logger.info(f"Azure configuration appears valid. Using model: {MODEL_PROMPT_ENHANCER}")

@@ -4,184 +4,138 @@ RAG Mock Module
 
 Implements a mock retrieval-augmented generation (RAG) system that looks up
 relevant information based on keywords extracted from user prompts.
+
+This module provides:
+1. A validated RAG database loaded from mock data
+2. A lookup function to match keywords to topics
+3. Logic to aggregate context, tips, offers, and related documents
 """
 
 import logging
-from typing import List, Dict, Any
-
-# Import mock database with fallback for error handling
-try:
-    from agentic_skeleton.config.settings import MOCK_RAG_DB
-except ImportError:
-    logging.error("Could not import MOCK_RAG_DB from settings. Ensure settings.py is accessible.")
-    MOCK_RAG_DB: Dict[str, Dict[str, Any]] = {}
+from typing import List, Dict
+# Use the mock data directly for simplicity in this example
+# In a real scenario, this might connect to a vector DB or other service
+from ..config.mock_rag_data import MOCK_RAG_DB
+from .models import RagEntry, RagResult  # Import Pydantic models
 
 logger = logging.getLogger(__name__)
 
-# Container class for RAG results
-class RagResult:
-    """Stores categorized information retrieved from the RAG database."""
-    
-    def __init__(self):
-        self.context: List[str] = []
-        self.offers: List[str] = []
-        self.tips: List[str] = []
-        self.related_docs: List[str] = []
+# Load and validate mock data using Pydantic models
+VALIDATED_RAG_DB: Dict[str, RagEntry] = {}
+for topic, data in MOCK_RAG_DB.items():
+    try:
+        VALIDATED_RAG_DB[topic] = RagEntry(**data)
+    except Exception as e:
+        logger.error(f"Failed to validate RAG data for topic '{topic}': {e}")
+        continue
 
-    def is_empty(self) -> bool:
-        """Check if all result categories are empty."""
-        return not (self.context or self.offers or self.tips or self.related_docs)
-
-    def to_dict(self) -> Dict[str, Any]:
-        """Convert to dictionary, joining context into a single string."""
-        return {
-            "context": "\n".join(self.context),  # Join contexts for prompt injection
-            "offers": self.offers,
-            "tips": self.tips,
-            "related_docs": self.related_docs
-        }
+logger.info(f"Validated and loaded {len(VALIDATED_RAG_DB)} RAG entries.")
 
 
-def lookup(keywords: List[str]) -> Dict[str, Any]:
+def lookup(keywords: List[str]) -> RagResult:
     """
-    Looks up keywords in the mock RAG database and returns structured information,
-    adjusting the number of offers, tips, and docs based on the number of matched topics.
+    Looks up relevant information in the RAG database based on keywords.
     
-    Logic:
-    - 1 matched topic: Return all offers, tips, and docs for that topic.
-    - 2 matched topics: Return the first 2 offers, tips, and docs for EACH topic.
-    - 3+ matched topics: Return the first 1 offer, tip, and doc for EACH topic.
-    
+    Performs case-insensitive matching of keywords against topic keywords.
+    When a match is found, the topic's context, tips, offers, and related
+    documents are collected. Multiple matches are aggregated into a
+    comprehensive result.
+
     Args:
         keywords: A list of keywords extracted from the user prompt.
 
     Returns:
-        Dictionary with structured RAG results.
+        A RagResult object containing:
+        - Aggregated context and tips for prompt enrichment
+        - Offers organized by matched topic
+        - Related documents organized by matched topic
+        - List of matched topics
     """
-    # Initialize the final result container
-    rag_result = RagResult()
+    matched_topics_set = set()
+    rag_context_parts = []
+    rag_tips_parts = []
+    offers_by_topic: Dict[str, List[str]] = {}
+    docs_by_topic: Dict[str, List[str]] = {}
 
-    # Early returns for edge cases
-    if not MOCK_RAG_DB:
-        logger.warning("Mock RAG database is empty or couldn't be loaded.")
-        return rag_result.to_dict()
-
+    # Skip processing if no keywords provided
     if not keywords:
-        logger.debug("No keywords provided for RAG lookup.")
-        return rag_result.to_dict()
+        logger.info("No keywords provided for RAG lookup")
+        return RagResult(
+            rag_context="No specific context found.",
+            offers_by_topic={},
+            docs_by_topic={},
+            matched_topics=[]
+        )
 
-    # Normalize keywords for consistent matching
-    processed_keywords = {kw.lower().strip() for kw in keywords if kw}
-    logger.debug(f"Performing RAG lookup for keywords: {processed_keywords}")
+    # Simple keyword matching algorithm (case-insensitive)
+    for keyword in keywords:
+        kw_lower = keyword.lower()
+        for topic, entry in VALIDATED_RAG_DB.items():
+            # Check if keyword matches any of the topic's keywords
+            if any(kw_lower in rag_kw.lower() for rag_kw in entry.keywords):
+                # Only process each topic once, even if multiple keywords match
+                if topic not in matched_topics_set:
+                    matched_topics_set.add(topic)
+                    logger.info(f"RAG match found for keyword '{keyword}' on topic: {topic}")
+                    
+                    # Gather context information
+                    if entry.context:
+                        rag_context_parts.append(f"Topic: {topic}\nContext: {entry.context}")
+                    
+                    # Gather tips with proper formatting
+                    if entry.tips:
+                        rag_tips_parts.extend([f"- {tip}" for tip in entry.tips])
+                    
+                    # Store offers and docs associated with this specific topic
+                    if entry.offers:
+                        offers_by_topic[topic] = [f"- {offer}" for offer in entry.offers]
+                    if entry.related_docs:
+                        docs_by_topic[topic] = [f"- {doc}" for doc in entry.related_docs]
 
-    # Store data for matched topics temporarily
-    matched_topic_data: Dict[str, Dict[str, Any]] = {}
+    # Combine context and tips with proper formatting and organization
+    combined_context = "\n\n".join(rag_context_parts) if rag_context_parts else "No specific context found."
+    if rag_tips_parts:
+        combined_context += "\n\nRelevant Tips for Context:\n" + "\n".join(rag_tips_parts)
 
-    # Search for matches across all topics in the database
-    for topic, data in MOCK_RAG_DB.items():
-        if topic in matched_topic_data: # Should not happen with dict keys, but safe check
-            continue
-            
-        # Get topic keywords and normalize them
-        db_keywords = {kw.lower().strip() for kw in data.get("keywords", [])}
-        
-        # Check for any intersection between input keywords and topic keywords
-        if processed_keywords.intersection(db_keywords):
-            logger.info(f"RAG match found for topic '{topic}' based on keywords: {processed_keywords.intersection(db_keywords)}")
-            matched_topic_data[topic] = data # Store the data for this matched topic
+    # Convert set to list for the result
+    matched_topics_list = list(matched_topics_set)
 
-    # --- NEW LOGIC: Determine limit and collect results based on number of matched topics ---
-    num_matched = len(matched_topic_data)
-    logger.debug(f"Number of matched topics: {num_matched}")
+    # Create the result object using our Pydantic model
+    result = RagResult(
+        rag_context=combined_context,
+        offers_by_topic=offers_by_topic,
+        docs_by_topic=docs_by_topic,
+        matched_topics=matched_topics_list
+    )
 
-    limit_per_topic: int | None = None # None means no limit (take all)
-    if num_matched == 2:
-        limit_per_topic = 2
-        logger.debug(f"Applying limit: First {limit_per_topic} items per category per topic.")
-    elif num_matched >= 3:
-        limit_per_topic = 1
-        logger.debug(f"Applying limit: First {limit_per_topic} item per category per topic.")
-    else:
-        limit_per_topic = None
-        logger.debug("No limit applied: All items from the matched topic will be returned.")
-
-    # Collect results from matched topics, applying the limit
-    for topic, data in matched_topic_data.items():
-        if data.get("context"):
-            rag_result.context.append(str(data["context"])) # Context is always added fully
-        
-        # Apply slicing limit ([:None] takes all items)
-        rag_result.offers.extend([str(o) for o in data.get("offers", [])[:limit_per_topic]])
-        rag_result.tips.extend([str(t) for t in data.get("tips", [])[:limit_per_topic]])
-        rag_result.related_docs.extend([str(d) for d in data.get("related_docs", [])[:limit_per_topic]])
-
-    # Log if nothing was found or if the result is empty after processing
-    if rag_result.is_empty():
-        if num_matched == 0:
-            logger.debug("No matching information found in mock RAG database.")
-        else:
-            logger.debug("Result is empty after processing matched topics (potentially due to empty categories in matched topics).")
-
-    # Convert to dictionary for return
-    result_dict = rag_result.to_dict()
-    logger.debug(f"RAG lookup complete. Returning {len(result_dict.get('context', '').splitlines()) if result_dict.get('context') else 0} context line(s), {len(result_dict.get('offers', []))} offer(s), {len(result_dict.get('tips', []))} tip(s), and {len(result_dict.get('related_docs', []))} document(s) after applying limits.")
-    
-    return result_dict
+    logger.debug(f"RAG Lookup Result: Matched Topics={result.matched_topics}, Context Length={len(result.rag_context)}")
+    return result
 
 
-# Direct module execution for testing
+# Example usage (for testing purposes)
 if __name__ == '__main__':
-    logging.basicConfig(level=logging.DEBUG)
+    logging.basicConfig(level=logging.INFO)
 
-    # Import the expanded DB if running directly
-    try:
-        from agentic_skeleton.config.mock_rag_data import MOCK_RAG_DB
-    except ImportError:
-        print("Could not import expanded MOCK_RAG_DB for testing. Using fallback.")
-        # Define a minimal fallback DB for the test to run
-        MOCK_RAG_DB = {
-            "topic1": {
-                "keywords": ["one", "alpha"],
-                "context": "Context for topic one.",
-                "offers": ["Offer 1a", "Offer 1b", "Offer 1c"],
-                "tips": ["Tip 1a", "Tip 1b"],
-                "related_docs": ["Doc 1a"]
-            },
-            "topic2": {
-                "keywords": ["two", "beta"],
-                "context": "Context for topic two.",
-                "offers": ["Offer 2a", "Offer 2b"],
-                "tips": ["Tip 2a", "Tip 2b", "Tip 2c"],
-                "related_docs": ["Doc 2a", "Doc 2b"]
-            },
-            "topic3": {
-                "keywords": ["three", "gamma"],
-                "context": "Context for topic three.",
-                "offers": ["Offer 3a"],
-                "tips": ["Tip 3a"],
-                "related_docs": ["Doc 3a", "Doc 3b", "Doc 3c"]
-            },
-             "topic4": {
-                "keywords": ["four", "delta"],
-                "context": "Context for topic four.",
-                "offers": ["Offer 4a", "Offer 4b"],
-                "tips": ["Tip 4a"],
-                "related_docs": ["Doc 4a", "Doc 4b"]
-            }
-        }
+    test_keywords = ["mortgage", "first time buyer", "advice"]
+    rag_info = lookup(test_keywords)
+    print("--- RAG Lookup Example ---")
+    print(f"Matched Topics: {rag_info.matched_topics}")
+    print("\n--- Context for Prompt Enrichment ---")
+    print(rag_info.rag_context)
+    print("\n--- Offers by Topic ---")
+    print(rag_info.offers_by_topic)
+    print("\n--- Docs by Topic ---")
+    print(rag_info.docs_by_topic)
+    print("-------------------------")
 
-
-    # Test cases to demonstrate the new logic
-    test_cases = [
-        (["one"], "1 Match: Expect all from topic1"),                            # 1 match
-        (["one", "beta"], "2 Matches: Expect first 2 from topic1 & topic2"),      # 2 matches
-        (["alpha", "two", "gamma"], "3 Matches: Expect first 1 from t1, t2, t3"), # 3 matches
-        (["one", "two", "three", "four"], "4 Matches: Expect first 1 from t1, t2, t3, t4"), # 4 matches
-        (["blockchain"], "0 Matches: Expect empty result")                     # No match
-    ]
-    
-    import json
-    for keywords, description in test_cases:
-        print(f"\n--- Test Case: {description} (Keywords: {keywords}) ---")
-        result = lookup(keywords)
-        print(json.dumps(result, indent=2))
+    test_keywords_2 = ["internal job", "career"]
+    rag_info_2 = lookup(test_keywords_2)
+    print("\n--- RAG Lookup Example 2 ---")
+    print(f"Matched Topics: {rag_info_2.matched_topics}")
+    print("\n--- Context for Prompt Enrichment ---")
+    print(rag_info_2.rag_context)
+    print("\n--- Offers by Topic ---")
+    print(rag_info_2.offers_by_topic)
+    print("\n--- Docs by Topic ---")
+    print(rag_info_2.docs_by_topic)
+    print("-------------------------")

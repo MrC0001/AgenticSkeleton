@@ -2,161 +2,199 @@
 Prompt Engineering Module
 ========================
 
-Handles:
-1. Keyword extraction from user prompts
-2. Skill-based parameter retrieval
+This module is responsible for the intelligent handling of user prompts:
+
+1. Keyword extraction from user prompts for RAG lookup
+2. Skill-based parameter retrieval to adapt responses to user expertise
 3. Structured prompt formatting according to the Persona-Query-Restrictions pattern
+   to ensure consistent, high-quality responses from the LLM
+
+The PQR pattern structures prompts with:
+- Persona: The role/style the LLM should adopt
+- Query: The actual user question/request
+- Restrictions: Guidelines to control the response format/content
 """
 
 import logging
+from typing import List, Dict, Tuple, Optional
 import re
-from typing import List, Dict, Any, Tuple, Optional
 
-# Import settings with fallback for error handling
 try:
-    from agentic_skeleton.config.settings import SKILL_PARAMS, SKILL_LEVELS, DEFAULT_PERSONA, RESTRICTIONS_TEMPLATE
+    from ..config import settings
 except ImportError:
-    logging.error("Could not import settings from agentic_skeleton.config.settings. Ensure settings.py is accessible.")
+    logging.error("Could not import settings. Ensure settings.py is accessible.")
     # Provide fallback defaults to prevent crashes
-    SKILL_LEVELS = ('BEGINNER',)
-    SKILL_PARAMS = {'BEGINNER': {'system_prompt_addon': '', 'temperature': 0.7, 'max_tokens': 500}}
-    DEFAULT_PERSONA = "You are a helpful assistant."
-    RESTRICTIONS_TEMPLATE = "Restrictions: None."
+    settings = type('obj', (object,), {
+        'SKILL_LEVELS': ('BEGINNER',),
+        'SKILL_PARAMS': {'BEGINNER': {'skill_level_addon': '', 'temperature': 0.7, 'max_tokens': 500}},
+        'DEFAULT_PERSONA': "You are a helpful assistant.",
+        'RESTRICTIONS_TEMPLATE': "Restrictions: None.",
+        'NUM_KEYWORDS': 5  # Add fallback
+    })()
+
+from .models import RagResult  # Import RagResult model
 
 logger = logging.getLogger(__name__)
 
 
 def extract_keywords_simple(text: str, num_keywords: int = 5) -> List[str]:
     """
-    Extracts keywords from user prompt text using a simple rule-based approach.
+    Extracts simple keywords from text using basic NLP techniques.
     
-    The function:
-    1. Splits text on word boundaries
-    2. Filters out common stop words and short terms
-    3. Returns unique keywords up to the specified limit
+    This function performs:
+    1. Text cleaning (punctuation removal, lowercase conversion)
+    2. Word splitting
+    3. Stop word filtering
+    4. Short word removal
+    5. Selection of top N keywords
     
-    Args:
-        text: The input text (user prompt)
-        num_keywords: Maximum number of keywords to return
-        
-    Returns:
-        List of extracted keywords (lowercase)
-    """
-    if not text:
-        return []
+    Note: This is a basic implementation. For production, consider more robust
+    NLP techniques like TF-IDF, entity extraction, or embedding-based keyword extraction.
 
-    # Split by word boundaries and lowercase everything
-    words = re.findall(r'\b\w+\b', text.lower())
+    Args:
+        text: The input text to extract keywords from.
+        num_keywords: The maximum number of keywords to return.
+
+    Returns:
+        A list of potential keywords, limited to num_keywords.
+    """
+    # Handle empty input
+    if not text:
+        logger.debug("Empty text provided for keyword extraction")
+        return []
+        
+    # First clean the input text - remove punctuation and normalize
+    cleaned_text = re.sub(r'[^\w\s]', ' ', text.lower())
     
-    # Basic stop words to filter out common terms
-    stop_words = set([
-        "a", "an", "the", "is", "are", "in", "on", "it", 
-        "and", "or", "for", "to", "of", "how", "what", 
-        "why", "tell", "me", "about"
-    ])
+    # Split into words
+    words = cleaned_text.split()
+    
+    # Common English stop words to filter out (short list for simplicity)
+    stop_words = {'a', 'an', 'the', 'and', 'or', 'but', 'is', 'are', 'was', 
+                 'were', 'be', 'been', 'being', 'in', 'on', 'at', 'to', 'for',
+                 'with', 'about', 'me', 'my', 'i', 'it', 'its', 'of', 'that', 'this'}
     
     # Filter out stop words and short words
-    keywords = [word for word in words if word not in stop_words and len(word) > 2]
-
-    # Get unique keywords while maintaining original order
-    unique_keywords = list(dict.fromkeys(keywords))
+    filtered_words = [word for word in words if word not in stop_words and len(word) > 2]
     
-    logger.debug(f"Extracted keywords: {unique_keywords[:num_keywords]}")
-    return unique_keywords[:num_keywords]
+    # Take the top N keywords
+    keywords = filtered_words[:num_keywords]
+    
+    logger.debug(f"Extracted keywords from '{text[:30]}...': {keywords}")
+    return keywords
 
 
-def get_skill_based_params(skill_level: str) -> Dict[str, Any]:
+def get_skill_based_params(skill_level: str) -> Dict:
     """
-    Retrieves parameters tailored to a specific user skill level.
+    Retrieves LLM parameters and system prompt additions based on user skill level.
     
-    Parameters include:
-    - system_prompt_addon: Guidance text based on skill level
-    - temperature: Controls randomness of LLM outputs (lower=more deterministic)
-    - max_tokens: Maximum length of generated response
+    This function ensures the LLM response is tailored to the user's expertise level by:
+    1. Adjusting the temperature (creativity vs. precision)
+    2. Setting appropriate token limits
+    3. Adding skill-specific guidance to the system prompt
     
+    The skill levels are configured in settings.SKILL_LEVELS with corresponding
+    parameters in settings.SKILL_PARAMS.
+
     Args:
-        skill_level: User's skill level (e.g., 'BEGINNER', 'EXPERT')
-        
+        skill_level: The user's skill level string (e.g., 'BEGINNER', 'INTERMEDIATE', 'EXPERT').
+
     Returns:
-        Dictionary of parameters for the specified skill level, 
-        or BEGINNER parameters if skill level is invalid
+        A dictionary containing parameters like:
+        - 'temperature': Controls randomness (lower = more deterministic)
+        - 'max_tokens': Controls response length 
+        - 'skill_level_addon': Text to add to system prompt
+        
+        Returns BEGINNER defaults if skill level is unknown.
     """
-    # Normalize skill level input for consistent matching
-    normalized_skill = skill_level.upper().strip()
-
-    # Validate against known skill levels
-    if normalized_skill not in SKILL_LEVELS:
-        logger.warning(f"Invalid skill level provided: '{skill_level}'. Defaulting to BEGINNER parameters.")
-        normalized_skill = 'BEGINNER'  # Fallback to beginner
-
-    # Get parameters for this skill level
-    params = SKILL_PARAMS.get(normalized_skill, SKILL_PARAMS['BEGINNER'])
-    logger.debug(f"Retrieved parameters for skill level '{normalized_skill}': {params}")
+    # Clean and normalize the skill level
+    cleaned_skill_level = skill_level.strip().upper() if skill_level else ''
     
-    # Return a copy to prevent modification of original settings
-    return params.copy()
+    # Check if the cleaned skill level is in our valid levels
+    if cleaned_skill_level in settings.SKILL_LEVELS:
+        logger.info(f"Found skill parameters for level: {cleaned_skill_level}")
+        # Return a copy to prevent accidental modification of the original
+        return settings.SKILL_PARAMS.get(cleaned_skill_level, {}).copy()
+    else:
+        logger.warning(f"Skill level '{skill_level}' not recognized. Using default BEGINNER parameters.")
+        # Fallback to BEGINNER
+        return settings.SKILL_PARAMS.get('BEGINNER', {}).copy()
 
 
 def format_prompt_pqr(
-    original_prompt: str,
-    skill_system_addon: str,
-    rag_context: Optional[str] = None,
-    persona: Optional[str] = None,
-    restrictions: Optional[str] = None,
-    topic: Optional[str] = None
+    user_prompt: str,
+    skill_level_addon: str,
+    rag_result: RagResult,
+    persona: str = None,
+    restrictions_template: str = None
 ) -> Tuple[str, str]:
     """
-    Formats prompts using the Persona-Query-Restrictions pattern with RAG context.
+    Formats the system and user prompts using the Persona-Query-Restrictions (PQR) pattern.
     
-    The function constructs:
-    1. System prompt with persona, skill guidance, relevant context, and restrictions
-    2. User prompt containing the original query
+    The PQR pattern helps structure prompts consistently for better LLM responses by:
+    1. Defining a clear persona for the LLM to adopt
+    2. Preserving the original user query
+    3. Setting explicit restrictions to guide the response format/content
+    4. Incorporating relevant context from RAG and skill-level adaptations
     
     Args:
-        original_prompt: Raw query from the user
-        skill_system_addon: Skill-specific guidance text
-        rag_context: Contextual information from RAG lookup
-        persona: LLM persona text (defaults to settings.DEFAULT_PERSONA)
-        restrictions: Guardrails for LLM (defaults to settings.RESTRICTIONS_TEMPLATE)
-        topic: Topic to replace [topic] placeholder in restrictions
-        
-    Returns:
-        Tuple containing (system_prompt, user_prompt)
-    """
-    # Use defaults if not provided
-    final_persona = persona if persona else DEFAULT_PERSONA
-    final_restrictions = restrictions if restrictions else RESTRICTIONS_TEMPLATE
+        user_prompt: The original query from the user.
+        skill_level_addon: Text to add to the system prompt based on skill level.
+        rag_result: The RagResult object containing context and matched topics.
+        persona: The persona the LLM should adopt. Uses settings.DEFAULT_PERSONA if None.
+        restrictions_template: Guidelines for response. Uses settings.RESTRICTIONS_TEMPLATE if None.
 
-    # Fill topic placeholder in restrictions if provided
-    if topic and '[topic]' in final_restrictions:
-        final_restrictions = final_restrictions.replace('[topic]', topic)
-        logger.debug(f"Filled '[topic]' placeholder in restrictions with: {topic}")
+    Returns:
+        A tuple containing:
+        - system_prompt: The formatted system prompt with persona, context, and restrictions
+        - user_prompt: The original user query (unchanged)
+    """
+    # Use default values from settings if not provided
+    persona = persona or settings.DEFAULT_PERSONA
+    restrictions_template = restrictions_template or settings.RESTRICTIONS_TEMPLATE
+    
+    # Determine the primary topic for restrictions
+    # If RAG found matching topics, use the first one, otherwise use a default
+    primary_topic = rag_result.matched_topics[0] if rag_result.matched_topics else "general banking"
+    logger.debug(f"Using primary topic '{primary_topic}' for restrictions template.")
+
+    # Fill placeholders in the restrictions template
+    formatted_restrictions = restrictions_template.replace("[topic]", primary_topic)
 
     # Build system prompt in sections
-    system_prompt_parts = [final_persona]
+    system_prompt_parts = [persona]
+    
+    # Add skill level guidance section if provided
+    if skill_level_addon:
+        system_prompt_parts.extend([
+            "\n--- Skill Level Guidance ---",
+            skill_level_addon
+        ])
+    
+    # Add RAG context section if available
+    if rag_result.rag_context and rag_result.rag_context != "No specific context found.":
+        system_prompt_parts.extend([
+            "\n--- Relevant Context ---",
+            rag_result.rag_context,
+            "Use the context above to inform your response."
+        ])
+    
+    # Add restrictions section
+    system_prompt_parts.extend([
+        "\n--- Restrictions ---",
+        formatted_restrictions
+    ])
+    
+    # Combine all parts, filtering out any empty strings
+    system_prompt = "\n".join(filter(None, system_prompt_parts))
 
-    # Add skill guidance if provided
-    if skill_system_addon:
-        system_prompt_parts.append(f"\n--- Skill Level Guidance ---\n{skill_system_addon}")
+    # The user prompt remains the original user query
+    final_user_prompt = user_prompt
 
-    # Add RAG context if provided
-    if rag_context:
-        system_prompt_parts.append(f"\n--- Relevant Context ---\n{rag_context}")
-        system_prompt_parts.append("\nUse the context above to inform your response, particularly regarding internal services and ambassadorship opportunities.")
+    logger.debug(f"Formatted System Prompt (length: {len(system_prompt)})")
+    logger.debug(f"Formatted User Prompt (length: {len(final_user_prompt)})")
 
-    # Always include restrictions
-    system_prompt_parts.append(f"\n--- {final_restrictions}")
-
-    # Join all parts into final system prompt
-    system_prompt = "\n".join(system_prompt_parts).strip()
-
-    # User prompt is simply the original query
-    user_prompt = original_prompt.strip()
-
-    logger.debug(f"Formatted System Prompt:\n{system_prompt}")
-    logger.debug(f"Formatted User Prompt: {user_prompt}")
-
-    return system_prompt, user_prompt
+    return system_prompt, final_user_prompt
 
 
 # Module testing (only executed when running directly)
@@ -166,11 +204,10 @@ if __name__ == '__main__':
     # Sample test data
     test_prompt = "Tell me about the new mortgage product and how I can grow my career here."
     test_skill = 'intermediate'
-    test_topic = "mortgage product"
 
     # Test keyword extraction
     print("--- Testing Keyword Extraction ---")
-    keywords = extract_keywords_simple(test_prompt)
+    keywords = extract_keywords_simple(test_prompt, num_keywords=settings.NUM_KEYWORDS)
     print(f"Keywords: {keywords}")
 
     # Test skill parameter retrieval
@@ -182,23 +219,38 @@ if __name__ == '__main__':
 
     # Test prompt formatting with RAG context
     print("\n--- Testing Prompt Formatting (with RAG) ---")
-    mock_rag = "The 'FlexiHome' mortgage is new. The Internal Mobility Program helps with career growth."
+    mock_rag = RagResult(
+        rag_context="Topic: new_mortgage_product\nContext: The 'FlexiHome' mortgage offers flexible rate options and a digital application.\n\nTopic: internal_mobility_program\nContext: Our Internal Mobility Program facilitates career progression within the bank.\n\nRelevant Tips for Context:\n- Familiarize yourself with the eligibility criteria.\n- Highlight the quick pre-approval time when discussing with clients/colleagues.\n- Use the internal calculator for estimations.\n- Update your internal profile regularly.\n- Network with managers in departments you're interested in.\n- Use the 'Job Alert' feature on the internal portal.",
+        offers_by_topic={
+            "new_mortgage_product": ["- Offer M1", "- Offer M2"],
+            "internal_mobility_program": ["- Offer I1"]
+        },
+        docs_by_topic={
+            "new_mortgage_product": ["- Doc M1"],
+            "internal_mobility_program": ["- Doc I1", "- Doc I2"]
+        },
+        matched_topics=["new_mortgage_product", "internal_mobility_program"]
+    )
     system_p, user_p = format_prompt_pqr(
-        original_prompt=test_prompt,
-        skill_system_addon=skill_params.get('system_prompt_addon', ''),
-        rag_context=mock_rag,
-        topic=test_topic
+        user_prompt=test_prompt,
+        skill_level_addon=skill_params.get('skill_level_addon', ''),
+        rag_result=mock_rag
     )
     print(f"\nSystem Prompt:\n{system_p}")
     print(f"\nUser Prompt: {user_p}")
 
     # Test prompt formatting without RAG context
     print("\n--- Testing Formatting (No RAG) ---")
+    mock_rag_no_context = RagResult(
+        rag_context="",
+        offers_by_topic={},
+        docs_by_topic={},
+        matched_topics=[]
+    )
     system_p_no_rag, user_p_no_rag = format_prompt_pqr(
-        original_prompt="What are the business banking options?",
-        skill_system_addon=get_skill_based_params('BEGINNER').get('system_prompt_addon', ''),
-        rag_context=None,
-        topic="business banking"
+        user_prompt="What are the business banking options?",
+        skill_level_addon=get_skill_based_params('BEGINNER').get('skill_level_addon', ''),
+        rag_result=mock_rag_no_context
     )
     print(f"\nSystem Prompt:\n{system_p_no_rag}")
     print(f"\nUser Prompt: {user_p_no_rag}")

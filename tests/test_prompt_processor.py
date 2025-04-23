@@ -1,10 +1,13 @@
-# tests/test_prompt_processor.py
+"""
+Tests for the prompt processor module
+"""
 
 import pytest
 from unittest.mock import MagicMock, patch
 
 # Import the module to test
 from agentic_skeleton.core import prompt_processor
+from agentic_skeleton.core.models import RagResult
 
 # --- Fixtures ---
 
@@ -15,11 +18,19 @@ def mock_dependencies(monkeypatch):
     mock_azure_client_instance = MagicMock()
     mock_azure_client_instance.call_llm.return_value = "Generated Azure Response"
 
+    # Create a mock RagResult object
+    mock_rag_result = RagResult(
+        rag_context="RAG system unavailable.",
+        offers_by_topic={},
+        docs_by_topic={},
+        matched_topics=[]
+    )
+
     mocks = {
         'get_user_skill_level': MagicMock(return_value='BEGINNER'),
         'extract_keywords_simple': MagicMock(return_value=['keyword1', 'keyword2']),
-        'lookup': MagicMock(return_value={'context': 'Mock RAG context', 'offers': [], 'tips': [], 'related_docs': []}),
-        'get_skill_based_params': MagicMock(return_value={'system_prompt_addon': 'Beginner addon', 'temperature': 0.7, 'max_tokens': 500}),
+        'lookup': MagicMock(return_value=mock_rag_result),
+        'get_skill_based_params': MagicMock(return_value={'skill_level_addon': 'Beginner addon', 'temperature': 0.7, 'max_tokens': 500}),
         'format_prompt_pqr': MagicMock(return_value=('Formatted System Prompt', 'Formatted User Prompt')),
         # Mock the initialize_client function to return our mock instance
         'initialize_client': MagicMock(return_value=mock_azure_client_instance),
@@ -49,6 +60,15 @@ def test_process_prompt_request_mock_mode_success(mock_dependencies):
     # Set mock mode
     mock_dependencies['is_using_mock'].return_value = True
 
+    # Update the mock_rag_result with content
+    mock_rag_result = RagResult(
+        rag_context="Mock RAG context",
+        offers_by_topic={"topic1": ["Offer 1"]},
+        docs_by_topic={"topic1": ["Doc 1"]},
+        matched_topics=["topic1"]
+    )
+    mock_dependencies['lookup'].return_value = mock_rag_result
+
     result = prompt_processor.process_prompt_request(user_id, user_prompt)
 
     # Assertions
@@ -57,10 +77,9 @@ def test_process_prompt_request_mock_mode_success(mock_dependencies):
     mock_dependencies['lookup'].assert_called_once_with(['keyword1', 'keyword2'])
     mock_dependencies['get_skill_based_params'].assert_called_once_with('BEGINNER')
     mock_dependencies['format_prompt_pqr'].assert_called_once_with(
-        original_prompt=user_prompt,
-        skill_system_addon='Beginner addon',
-        rag_context='Mock RAG context',
-        topic='keyword1' # Uses first keyword as topic
+        user_prompt=user_prompt,
+        skill_level_addon='Beginner addon',
+        rag_result=mock_rag_result
     )
     # In mock mode, initialize_client and call_llm should NOT be called
     mock_dependencies['initialize_client'].assert_not_called()
@@ -72,7 +91,8 @@ def test_process_prompt_request_mock_mode_success(mock_dependencies):
     assert f"Original Prompt: {user_prompt}" in result
     assert "Keywords: ['keyword1', 'keyword2']" in result
     assert "RAG Context Found: Yes" in result
-    assert "LLM Params Used (excluding addon): {'temperature': 0.7, 'max_tokens': 500}" in result
+    assert "RAG Matched Topics: ['topic1']" in result
+    assert "LLM Params Used (excluding addon): {'skill_level_addon': 'Beginner addon', 'temperature': 0.7, 'max_tokens': 500}" in result
     assert "--- System Prompt ---\nFormatted System Prompt" in result
     assert "--- User Prompt ---\nFormatted User Prompt" in result
     assert "--- End Mock LLM Response ---" in result
@@ -86,7 +106,15 @@ def test_process_prompt_request_mock_mode_no_rag(mock_dependencies):
     # Setup mocks for this scenario
     mock_dependencies['is_using_mock'].return_value = True
     mock_dependencies['extract_keywords_simple'].return_value = ['general', 'question']
-    mock_dependencies['lookup'].return_value = {'context': '', 'offers': [], 'tips': [], 'related_docs': []} # No RAG context
+    
+    # Create an empty RAG result
+    mock_rag_result = RagResult(
+        rag_context="",
+        offers_by_topic={},
+        docs_by_topic={},
+        matched_topics=[]
+    )
+    mock_dependencies['lookup'].return_value = mock_rag_result
 
     result = prompt_processor.process_prompt_request(user_id, user_prompt)
 
@@ -96,10 +124,9 @@ def test_process_prompt_request_mock_mode_no_rag(mock_dependencies):
     mock_dependencies['lookup'].assert_called_once_with(['general', 'question'])
     mock_dependencies['get_skill_based_params'].assert_called_once_with('BEGINNER')
     mock_dependencies['format_prompt_pqr'].assert_called_once_with(
-        original_prompt=user_prompt,
-        skill_system_addon='Beginner addon',
-        rag_context='', # Empty RAG context
-        topic='general' # Uses first keyword
+        user_prompt=user_prompt,
+        skill_level_addon='Beginner addon',
+        rag_result=mock_rag_result
     )
     # In mock mode, initialize_client and call_llm should NOT be called
     mock_dependencies['initialize_client'].assert_not_called()
@@ -111,7 +138,8 @@ def test_process_prompt_request_mock_mode_no_rag(mock_dependencies):
     assert f"Original Prompt: {user_prompt}" in result
     assert "Keywords: ['general', 'question']" in result
     assert "RAG Context Found: No" in result
-    assert "LLM Params Used (excluding addon): {'temperature': 0.7, 'max_tokens': 500}" in result
+    assert "RAG Matched Topics: []" in result
+    assert "LLM Params Used (excluding addon): {'skill_level_addon': 'Beginner addon', 'temperature': 0.7, 'max_tokens': 500}" in result
     assert "--- System Prompt ---\nFormatted System Prompt" in result
     assert "--- User Prompt ---\nFormatted User Prompt" in result
     assert "--- End Mock LLM Response ---" in result
@@ -125,7 +153,15 @@ def test_process_prompt_request_azure_mode_success(mock_dependencies):
     # Setup mocks for Azure mode
     mock_dependencies['is_using_mock'].return_value = False # Switch to Azure mode
     mock_dependencies['extract_keywords_simple'].return_value = ['azure', 'something']
-    mock_dependencies['lookup'].return_value = {'context': 'Azure RAG', 'offers': [], 'tips': [], 'related_docs': []}
+    
+    # Create a RAG result with content
+    mock_rag_result = RagResult(
+        rag_context="Azure RAG",
+        offers_by_topic={"azure": ["Azure offer"]},
+        docs_by_topic={"azure": ["Azure doc"]},
+        matched_topics=["azure"]
+    )
+    mock_dependencies['lookup'].return_value = mock_rag_result
 
     result = prompt_processor.process_prompt_request(user_id, user_prompt)
 
@@ -135,10 +171,9 @@ def test_process_prompt_request_azure_mode_success(mock_dependencies):
     mock_dependencies['lookup'].assert_called_once_with(['azure', 'something'])
     mock_dependencies['get_skill_based_params'].assert_called_once_with('BEGINNER')
     mock_dependencies['format_prompt_pqr'].assert_called_once_with(
-        original_prompt=user_prompt,
-        skill_system_addon='Beginner addon',
-        rag_context='Azure RAG',
-        topic='azure'
+        user_prompt=user_prompt,
+        skill_level_addon='Beginner addon',
+        rag_result=mock_rag_result
     )
     # In Azure mode, initialize_client SHOULD be called
     mock_dependencies['initialize_client'].assert_called_once()
@@ -185,19 +220,9 @@ def test_process_prompt_request_exception_handling(mock_dependencies):
     expected_exception_message = "RAG lookup failed!"
     mock_dependencies['lookup'].side_effect = Exception(expected_exception_message)
 
-    # Use pytest.raises to assert that the specific exception is raised
-    # and that the returned string contains the error message.
-    with pytest.raises(Exception) as excinfo:
-        # This call should raise the exception set in the side_effect
-        prompt_processor.process_prompt_request(user_id, user_prompt)
+    # The function should catch the exception and return a formatted error response
+    result = prompt_processor.process_prompt_request(user_id, user_prompt)
     
-    # Check if the raised exception message is the one we expect
-    assert expected_exception_message in str(excinfo.value)
-
-    # Note: The original test checked the return value, but if an exception
-    # is raised and *not* caught within process_prompt_request, it won't return.
-    # If the intention is to test the *caught* exception's return string,
-    # the exception needs to be caught inside process_prompt_request.
-    # Based on the current code structure, the exception propagates.
-    # If the function *is* updated to catch and return an error string,
-    # this test should be changed back to check the return value.
+    # Check that the error message is in the result
+    assert "Error:" in result
+    assert expected_exception_message in result
