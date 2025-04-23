@@ -9,12 +9,15 @@ Provides Flask API endpoints for the prompt enhancement service:
 
 import logging
 from flask import Flask, request, jsonify, Response
+from flask_cors import CORS
 
 from agentic_skeleton.config import settings
 from agentic_skeleton.core import prompt_processor
 
 # Create Flask application
 app = Flask(__name__)
+# Enable CORS for all routes and origins
+CORS(app, resources={r"/*": {"origins": "*"}})
 
 @app.route("/health", methods=["GET"])
 def health_check() -> Response:
